@@ -1,0 +1,19 @@
+{
+	"name": "novelé",
+	"version": "0.0.1",
+	"description": "New novel reader userscript with Material-like smooth UI",
+    "namespace": "https://github.com/Small-Ku/skuript",
+	"match": [
+		"https://www.52shuku.vip/*",
+		"https://www.52shuwu.net/*",
+		"https://www.52shukuw.cc/*",
+		"https://www.xbanxia.com/*",
+		"https://www.sunzhinan.com/*",
+		"http://www.sanhebook.com/*",
+		"https://www.256wx.net/*",
+		"https://www.zhenhunxiaoshuo.com/*"
+	],
+	"grant": ["GM_addStyle"],
+	"author": "Small_Ku",
+	"license": "MIT"
+}
