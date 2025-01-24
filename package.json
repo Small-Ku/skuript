@@ -18,9 +18,9 @@
     "@types/yargs": "^17.0.33",
     "bun-style-loader": "^0.4.0",
     "rimraf": "^6.0.1",
-    "sass": "^1.79.4",
-    "type-fest": "^4.26.1",
-    "winston": "^3.14.2",
+    "sass": "^1.83.4",
+    "type-fest": "^4.33.0",
+    "winston": "^3.17.0",
     "yargs": "^17.7.2"
   },
   "peerDependencies": {

@@ -141,39 +141,23 @@ function generateHeader(
 	return header;
 }
 
-interface PostBuildOption {
-	entrypointPath: string;
-	releaseChannel: ReleaseChannel;
-	buildSuffix?: string;
-	headerOverride?: UserScriptHeader;
-}
-
-async function postBuildScript(options: PostBuildOption): Promise<string> {
-	const { entrypointPath, buildSuffix, headerOverride = {} } = options;
-	const scriptName = path.dirname(path.relative("./dist", entrypointPath));
-	const header: UserScriptHeader = {
-		...generateHeader(options.releaseChannel, scriptName),
-		...headerOverride,
-	};
-
-	if (buildSuffix) {
-		header["@version"] += `.${buildSuffix}`;
-	}
+function generateHeaderText(
+	header: UserScriptHeader,
+	buildSuffix?: string,
+): string {
+	if (buildSuffix) header["@version"] += `.${buildSuffix}`;
 
 	const longestHeaderChar = Math.max(
 		...Object.keys(header).map((k) => k.length),
 	);
-
 	const HEADER_BEGIN = "// ==UserScript==\n";
 	const HEADER_END = "// ==/UserScript==\n\n";
-	const outputPath = `./dist/${scriptName}.user.js`;
-	const data = await Bun.file(entrypointPath).text();
-	let output = HEADER_BEGIN;
+	let text = HEADER_BEGIN;
 
 	for (const key of MINIMAL_USER_SCRIPT_HEADER_ITEMS) {
 		const value = header[key];
 		for (const row of typeof value === "string" ? [value] : value) {
-			output += `// ${key.padEnd(longestHeaderChar)}  ${row}\n`;
+			text += `// ${key.padEnd(longestHeaderChar)}  ${row}\n`;
 		}
 	}
 
@@ -184,15 +168,11 @@ async function postBuildScript(options: PostBuildOption): Promise<string> {
 		}
 		const value = header[key];
 		for (const row of typeof value === "string" ? [value] : value) {
-			output += `// ${key.padEnd(longestHeaderChar)}  ${row}\n`;
+			text += `// ${key.padEnd(longestHeaderChar)}  ${row}\n`;
 		}
 	}
-	output += HEADER_END;
-	output += data;
-
-	await Bun.write(outputPath, output);
-	logger.info(`Successfully added the header to the userscript ${outputPath}!`);
-	return outputPath;
+	text += HEADER_END;
+	return text;
 }
 
 interface BuildOption {
@@ -208,16 +188,21 @@ interface BuildOutput {
 async function build(option: BuildOption): Promise<BuildOutput> {
 	const { dev = false, releaseChannel = "OutOfBand", entrypoint } = option;
 
+	const scriptName = path.dirname(path.relative("./src", entrypoint));
+	const header: UserScriptHeader = generateHeader(releaseChannel, scriptName);
+
 	logger.info(`Building ${entrypoint}`);
 	const build = await Bun.build({
 		entrypoints: [entrypoint],
-		outdir: `./dist/${path.dirname(path.relative("./src", entrypoint))}`,
+		outdir: './dist',
+		naming: `${scriptName}.user.js`,
 		minify: !dev,
 		sourcemap: dev ? "inline" : undefined,
 		loader: {
 			".html": "text",
 		},
 		plugins: [styleLoader()],
+		banner: generateHeaderText(header, dev ? Date.now().toString() : undefined),
 	});
 
 	logger.info(Bun.inspect(build, { colors: true }));
@@ -226,19 +211,12 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 		throw new Error("Bun build return errors");
 	}
 
-	const entrypointPath = build.outputs.find(
+	const outputPath = build.outputs.find(
 		(artifact) => artifact.kind === "entry-point",
 	)?.path;
-	logger.info(`Running post build script with entrypoint ${entrypointPath}.`);
-	if (!entrypointPath) {
+	if (!outputPath) {
 		throw new Error("Cannot find entrypoint in built artifacts.");
 	}
-
-	const outputPath = await postBuildScript({
-		entrypointPath,
-		releaseChannel,
-		buildSuffix: dev ? Date.now().toString() : undefined,
-	});
 	return {
 		userscriptPath: outputPath,
 	};
