@@ -1,4 +1,4 @@
-import styleLoader from "bun-style-loader";
+import styleLoader from "./bun_plugins/style-loader";
 import { watch as fswatch } from "node:fs";
 import winston from "winston";
 import yargs from "yargs";
@@ -194,14 +194,17 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 	logger.info(`Building ${entrypoint}`);
 	const build = await Bun.build({
 		entrypoints: [entrypoint],
-		outdir: './dist',
+		outdir: "./dist",
 		naming: `${scriptName}.user.js`,
 		minify: !dev,
 		sourcemap: dev ? "inline" : undefined,
-		loader: {
-			".html": "text",
-		},
-		plugins: [styleLoader()],
+		plugins: [
+			styleLoader({
+				cssModules: {
+					pattern: "[local]", // short random scooped class name is not supported for now
+				},
+			}),
+		],
 		banner: generateHeaderText(header, dev ? Date.now().toString() : undefined),
 	});
 
