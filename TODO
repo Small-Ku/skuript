@@ -1,0 +1,41 @@
+# Novelé TODO List
+
+1. [ ] Support extract page links from pages
+    1. [x] From link indexes
+    2. [ ] From individual pages
+    3. [ ] Use tree walker to guess new sites
+    4. [ ] Sites need to be ported from old scripts
+        - [ ] https://www.52shuku.vip
+        - [ ] https://www.52shuku.net
+        - [ ] https://www.52shuwu.net
+        - [ ] https://www.52shukuw.cc
+        - [ ] https://www.52shukuw.com
+        - [ ] https://www.banxia.la
+        - [ ] https://www.xbanxia.com
+        - [ ] https://www.sunzhinan.com
+        - [ ] http://www.sanhebook.com
+        - [ ] https://www.256wx.net
+        - [ ] https://www.256wx.org
+        - [ ] https://www.zhenhunxiaoshuo.com
+            - [ ] Pages
+            - [ ] Comments
+2. [] Support download pages
+    1. [x] Parallel download
+    2. [ ] Deal with cloudflare (maybe iframe)
+    3. [ ] Support multiple sites
+    4. [ ] Turn into Markdown-like format
+    5. [ ] Support Modified-Since to reduce request
+    6. [ ] Use `requestIdleCallback()` reduce lagging
+    7. [ ] Deal with unnecessary parts, like contents after `.pagination2` in 52shuku
+3. [ ] Guess chapters from pages
+    1. [ ] Page as a title
+    2. [ ] Chapter title in a page middle
+    3. [ ] Show as `<h1>`
+4. [ ] Expandable panel
+    1. [ ] Settings
+    2. [ ] Chapter list
+    3. [ ] Comments
+    4. [ ] Page list
+    5. [ ] Book info
+5. [ ] Misc
+    1. [x] Reconstruct the ExpandableFab into a static Fab with expandable content container in background, avoid ugly variable transition and animation.

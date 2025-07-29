@@ -306,3 +306,5 @@ out
 # outputs
 /dist/*
 !/dist/bun-ts-userscript-starter.user.js
+
+*.code-workspace

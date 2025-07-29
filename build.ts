@@ -205,7 +205,7 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 				},
 			}),
 		],
-		banner: generateHeaderText(header, dev ? Date.now().toString() : undefined),
+		banner: generateHeaderText(generateHeader(releaseChannel, scriptName), dev ? Date.now().toString() : undefined),
 	});
 
 	logger.info(Bun.inspect(build, { colors: true }));

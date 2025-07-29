@@ -5,12 +5,16 @@
     "namespace": "https://github.com/Small-Ku/skuript",
 	"match": [
 		"https://www.52shuku.vip/*",
+		"https://www.52shuku.net/*",
 		"https://www.52shuwu.net/*",
 		"https://www.52shukuw.cc/*",
+		"https://www.52shukuw.com/*",
+		"https://www.banxia.la/*",
 		"https://www.xbanxia.com/*",
 		"https://www.sunzhinan.com/*",
 		"http://www.sanhebook.com/*",
 		"https://www.256wx.net/*",
+		"https://www.256wx.org/*",
 		"https://www.zhenhunxiaoshuo.com/*"
 	],
 	"grant": ["GM_addStyle"],

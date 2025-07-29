@@ -1,6 +1,6 @@
 # Skuript
 
-Userscripts by [Small_Ku](https://github.com/Small-Ku).
+Userscripts by [Small_Ku](https://github.com/Small-Ku). Currently only WIP novele is included.
 
 ## Building
 
@@ -17,6 +17,10 @@ bun run build:watch
 # View additional building options
 bun run build.ts --help
 ```
+
+## Contributing
+
+Things are not working well and moving fast with frequent hard push for overwritting commit. Please don't contribute now.
 
 ## Acknowledgements
 
