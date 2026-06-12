@@ -1,56 +1,67 @@
-export type Page = {
+export type StoredPage = {
 	url: string;
-	title?: string;
 	lastModified: Date;
-	content: Raw | Dom | Parsed;
-};
-
-type Raw = string;
-type Dom = Document;
-type Parsed = {
 	title: Set<string>;
-	content: string[];
-	// comments
-	// prev/next page url
+	content?: string[];
+	additionalUrls?: string[];
+	raw?: string;
+	dom?: Document;
 };
 
-const pages: Page[] = [];
+type SessionPage = {
+	lastModified: string;
+	title: string[];
+	content?: string[];
+	additionalUrls?: string[];
+	raw?: string;
+};
 
-export function set(idx: number, page: Page): void {
-	pages[idx] = page;
-	const {url: _, ...sessionPage} = page;
-	sessionStorage.setItem(page.url, JSON.stringify(sessionPage));
+const pages = new Map<string, StoredPage>();
+
+function toSessionPage(page: StoredPage): SessionPage {
+	return {
+		lastModified: page.lastModified.toISOString(),
+		title: [...page.title],
+		content: page.content,
+		additionalUrls: page.additionalUrls,
+		raw: page.raw,
+	};
 }
 
-export function get(idx: number): Page {
-	return pages[idx];
+function fromSessionPage(url: string, page: SessionPage): StoredPage {
+	return {
+		url,
+		lastModified: new Date(page.lastModified),
+		title: new Set(page.title),
+		content: page.content,
+		additionalUrls: page.additionalUrls,
+		raw: page.raw,
+	};
 }
 
-export function findIndex(url: string): number {
-	const idx = pages.findIndex((p) => p.url === url);
-	if (idx === -1) throw new Error("Page not found");
-	return idx;
+function loadPage(url: string): StoredPage | undefined {
+	const stored = sessionStorage.getItem(url);
+	if (!stored) return;
+	const page = fromSessionPage(url, JSON.parse(stored) as SessionPage);
+	pages.set(url, page);
+	return page;
 }
 
-export function find(url: string): Page {
-	return pages[findIndex(url)];
+export function getPage(url: string): StoredPage | undefined {
+	return pages.get(url) ?? loadPage(url);
 }
 
-export function insertBefore(url: string, page: Page): void {
-	pages.splice(findIndex(url), 0, page);
+export function hasPage(url: string): boolean {
+	return getPage(url) !== undefined;
 }
 
-export function insertAfter(url: string, page: Page): void {
-	pages.splice(findIndex(url) + 1, 0, page);
+export function setPage(page: StoredPage): StoredPage {
+	pages.set(page.url, page);
+	sessionStorage.setItem(page.url, JSON.stringify(toSessionPage(page)));
+	return page;
 }
 
-export function setPage(page: Page): void {
-	set(findIndex(page.url), page);
-}
-
-export function restore(idx: number, url: string): void {
-    const stored = sessionStorage.getItem(url);
-	if (!stored) throw new Error("No stored page");
-	const sessionPage = JSON.parse(stored) as Omit<Page, "url">;
-	pages[idx] = {url, ...sessionPage};
+export function deletePage(url: string): void {
+	pages.delete(url);
+	sessionStorage.removeItem(url);
 }

@@ -4,7 +4,9 @@ import { parsePageChapter } from "./extract/chapters";
 import {
 	getAdditionalPageUrls,
 	getPage,
+	peekPage,
 	parsePageDom,
+	parseStandalonePage,
 	registerCurrentPage,
 	registerPageRaw,
 	setAdditionalPageUrls,
@@ -29,10 +31,10 @@ const inFlightFetches = new Map<string, Promise<void>>();
 
 async function fetchPageText(url: string): Promise<string> {
 	if (url === window.location.href) return document.documentElement.outerHTML;
-	const stored = sessionStorage.getItem(url);
-	if (stored && stored.length > 0) {
-		console.debug(`Using cached page from sessionStorage: ${url}`);
-		return stored;
+	const storedPage = peekPage(url);
+	if (storedPage?.raw) {
+		console.debug(`Using cached raw page: ${url}`);
+		return storedPage.raw;
 	}
 	for (;;) {
 		const response = await fetch(url, { cache: "force-cache" });
@@ -44,13 +46,15 @@ async function fetchPageText(url: string): Promise<string> {
 		if (!response.ok) {
 			throw new Error("ERROR", { cause: response });
 		}
-		const responseText = await response.text();
-		if (sessionStorage) sessionStorage.setItem(url, responseText);
-		return responseText;
+		return response.text();
 	}
 }
 
-async function queueFetch(url: string, orderHint: number): Promise<void> {
+async function queueFetch(url: string, orderHint: number, requireDocument = false): Promise<void> {
+	const cachedPage = peekPage(url);
+	if (cachedPage?.raw || cachedPage?.dom) return;
+	if (cachedPage?.content && !requireDocument) return;
+
 	const existing = inFlightFetches.get(url);
 	if (existing) return existing;
 
@@ -74,7 +78,7 @@ export async function updateCurrentPage(index: number) {
 }
 
 export async function fetchDocument(url: string, orderHint = 0): Promise<Document> {
-	await queueFetch(url, orderHint);
+	await queueFetch(url, orderHint, true);
 	const page = await parsePageDom(url);
 	if (!page.dom) throw new Error(`page DOM not available: ${url}`);
 	return page.dom;
@@ -85,6 +89,12 @@ export async function queueChapterFetch(
 	index: number,
 ): Promise<string[]> {
 	await queueFetch(link.url, index);
+	const cachedPage = peekPage(link.url);
+	if (cachedPage?.content) {
+		await parsePageChapter(link.url);
+		return cachedPage.content;
+	}
+
 	const pageState = await parsePageDom(link.url);
 	if (!pageState.dom) throw new Error(`page DOM not available: ${link.url}`);
 	const additionalUrls = getAdditionalPageUrls(
@@ -92,11 +102,10 @@ export async function queueChapterFetch(
 		pageState.dom.documentElement.outerHTML,
 	);
 	setAdditionalPageUrls(link.url, additionalUrls);
-	await Promise.all(
-		additionalUrls.map((url, extraIndex) =>
-			queueFetch(url, index + extraIndex + 0.1),
-		),
-	);
+	for (const [extraIndex, url] of additionalUrls.entries()) {
+		await queueFetch(url, index + extraIndex + 0.1);
+		await parseStandalonePage(url);
+	}
 	const page = await getPage(link.url);
 	await parsePageChapter(link.url);
 	return page.content || [];
