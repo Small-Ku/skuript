@@ -2,24 +2,18 @@
 
 1. [ ] Support extract page links from pages
     1. [x] From link indexes
-    2. [ ] From individual pages
+    2. [x] From individual pages
     3. [ ] Use tree walker to guess new sites
     4. [ ] Sites need to be ported from old scripts
-        - [ ] https://www.52shuku.vip
-        - [ ] https://www.52shuku.net
-        - [ ] https://www.52shuwu.net
-        - [ ] https://www.52shukuw.cc
-        - [ ] https://www.52shukuw.com
-        - [ ] https://www.banxia.la
-        - [ ] https://www.xbanxia.com
-        - [ ] https://www.sunzhinan.com
-        - [ ] http://www.sanhebook.com
-        - [ ] https://www.256wx.net
-        - [ ] https://www.256wx.org
-        - [ ] https://www.zhenhunxiaoshuo.com
+        - [ ] https://www.52shuku.vip -> https://www.52shuku.net/chongsheng/hvCE_2.html
+        - [ ] https://www.52shuwu.net -> https://www.52shuwu.top/chongsheng/57099_2.html
+        - [ ] https://www.banxia.la -> https://www.xbanxia.cc/books/417735/72653220.html
+        - [ ] https://www.sunzhinan.com -> https://www.sunzhinan.com/read/21210/4399731.html
+        - [ ] https://www.256wx.org -> https://www.256wx.org/read/184867/1.html
+        - [ ] https://www.zhenhunxiaoshuo.com -> https://www.zhenhunxiaoshuo.com/324848.html
             - [ ] Pages
             - [ ] Comments
-2. [] Support download pages
+2. [ ] Support download pages
     1. [x] Parallel download
     2. [ ] Deal with cloudflare (maybe iframe)
     3. [ ] Support multiple sites

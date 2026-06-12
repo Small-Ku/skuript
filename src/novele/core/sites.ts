@@ -2,29 +2,25 @@
 export const getBookInfo: (doc: Document) => { title?: string, author?: string, tag?: string[] } = ((hostname) => {
     const mappedSite = {
         "www.52shuwu.net": "www.52shuku.vip",
+        "www.52shuwu.top": "www.52shuku.vip",
         "www.banxia.la": "www.xbanxia.com",
-        "www.256wx.org": "www.256wx.net",
-        "www.52shukuw.com": "www.52shukuw.cc"
+        "www.xbanxia.cc": "www.xbanxia.com",
     }[hostname] ?? hostname;
     const bookInfoSelector = {
         "www.52shuku.vip": [".article-title"],
-        "www.52shukuw.cc": [".art_tit"],
         "www.52shuku123.cc": [".booktitle"],
         "www.dameishuwang.net": [".booktitle"],
         "www.xbanxia.com": [".book-describe>h1"],
         "www.sunzhinan.com": [".novel_info_title>h1", '.text_info>span>a[href*="books"]>i'],
-        "www.sanhebook.com": [".info2>h1.text-center"],
-        "www.256wx.net": ["#nr_title"],
+        "www.256wx.org": ["#nr_title"],
         "www.zhenhunxiaoshuo.com": [".focusbox-title"],
     }[mappedSite] ?? [];
     const authorSelector = {
-        "www.52shukuw.cc": [".infotype_mulu>.bookinfo"],
         "www.52shuku123.cc": ['.booktag>a[title^="作者"]'],
         "www.dameishuwang.net": ['.booktag>a[title^="作者"]'],
         "www.xbanxia.com": ['.book-describe>p>a[href*="author"]'],
         "www.sunzhinan.com": ['.novel_info_title>i>a[href*="author"]', '.text_info>span>a[href*="author"]>i'],
-        "www.sanhebook.com": ['.info2>h3.text-center>a[href*="author"]'],
-        "www.256wx.net": ["#nr_title + span"],
+        "www.256wx.org": ["#nr_title + span"],
         "www.zhenhunxiaoshuo.com": [".focusbox-text>.text"],
     }[mappedSite];
 

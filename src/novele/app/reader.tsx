@@ -9,10 +9,10 @@ import {
 } from "../../style/icon";
 import { TextField } from "./component/text-field";
 import { BottomBar } from "./bottom-bar";
-import { parseLinks, type Link } from "../core/extract/links";
+import { resolveLinks, subscribeLinks } from "../core/extract/links";
 import { queueChapterFetch, updateCurrentPage } from "../core/queue";
 import { getChapter } from "../core/extract/chapters";
-import { findPage, getPage } from "../core/extract/pages";
+import { findPage } from "../core/extract/pages";
 import { nav } from "../core/nav";
 
 const { button, div, p, input } = van.tags;
@@ -45,17 +45,21 @@ const content = van.state([
 
 export const Reader = () => {
     const chapters = van.state<Map<number, string[]>>(new Map());
+    const queuedLinks = new Set<string>();
 
     // Initialize chapters and content
     van.derive(() => {
-        const links = parseLinks(document);
-
-        // Queue all chapters for fetching and parsing
-        links.forEach((link, index) => {
-            queueChapterFetch(link, index).then(content => {
-                chapters.val = new Map(chapters.val.set(index, content));
+        const unsubscribe = subscribeLinks((links) => {
+            links.forEach((link, index) => {
+                if (queuedLinks.has(link.url)) return;
+                queuedLinks.add(link.url);
+                queueChapterFetch(link, index).then((content) => {
+                    chapters.val = new Map(chapters.val.set(index, content));
+                });
             });
         });
+        void resolveLinks(document);
+        return unsubscribe;
     });
 
     // Update queue priority when current chapter changes

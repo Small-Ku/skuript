@@ -1,71 +1,72 @@
-import type { Link } from "./extract/links";
 import { JobQueue } from "../../util/job-queue";
+import type { Link } from "./extract/links";
 import { parsePageChapter } from "./extract/chapters";
-import { fetchPage, getPage } from "./extract/pages";
+import { fetchPage, getPage, parsePageDom } from "./extract/pages";
 
-interface PageContext {
-	pageIndex: number;
+interface FetchContext {
+	orderHint: number;
 	url: string;
 }
 
 interface QueueContext {
-	currentPageIndex: number;
+	currentOrderHint: number;
 }
 
-// Create queues for different operations
-export const pageQueue = new JobQueue<PageContext, QueueContext, string[]>(
-	// Priority function
-	(jobContext: PageContext, context: QueueContext) => {
-		// Higher priority (lower number) for chapters closer to current chapter
-		return Math.abs(jobContext.pageIndex - context.currentPageIndex);
-	},
-	// Initial context
-	{ currentPageIndex: 0 },
-	// Options (including concurrency)
+const fetchQueue = new JobQueue<FetchContext, QueueContext, void>(
+	(jobContext, context) => Math.abs(jobContext.orderHint - context.currentOrderHint),
+	{ currentOrderHint: 0 },
 	3,
 );
 
-// Update current chapter position to adjust priorities
-export async function updateCurrentPage(index: number) {
-	await pageQueue.setContext({ currentPageIndex: index });
+const inFlightFetches = new Map<string, Promise<void>>();
+
+async function fetchPageWithRetry(link: Link): Promise<void> {
+	for (;;) {
+		try {
+			await fetchPage(link);
+			return;
+		} catch (err: any) {
+			console.error(`Error fetching page ${link.url}:`, err);
+			const response: Response | undefined = err?.cause;
+			if (!response || response.status !== 429) throw err;
+			const retryAfter = parseInt(response.headers.get("retry-after") || "0", 10) * 1000;
+			await new Promise((resolve) => setTimeout(resolve, retryAfter));
+		}
+	}
 }
 
-// Queue a chapter fetch and parse operation
+async function queueFetch(url: string, orderHint: number): Promise<void> {
+	const existing = inFlightFetches.get(url);
+	if (existing) return existing;
+
+	const promise = fetchQueue.addJob(async () => {
+		try {
+			await fetchPageWithRetry({ url });
+		} finally {
+			inFlightFetches.delete(url);
+		}
+	}, { url, orderHint });
+	inFlightFetches.set(url, promise);
+	return promise;
+}
+
+export async function updateCurrentPage(index: number) {
+	await fetchQueue.setContext({ currentOrderHint: index });
+}
+
+export async function fetchDocument(url: string, orderHint = 0): Promise<Document> {
+	await queueFetch(url, orderHint);
+	const page = await parsePageDom(url);
+	if (!page.dom) throw new Error(`page DOM not available: ${url}`);
+	return page.dom;
+}
+
 export async function queueChapterFetch(
 	link: Link,
 	index: number,
 ): Promise<string[]> {
-	// console.log(`Queueing chapter fetch for ${link.url} at index ${index}`);
-	const task = async () => {
-		while (pageQueue.getQueueSize()) {
-			try {
-				await fetchPage(link);
-				break; // Exit loop if fetch is successful
-			} catch (err: any) {
-				console.error(`Error fetching page ${link.url}:`, err);
-				const response: Response = err.cause!;
-				const retryAfter =
-					parseInt(response.headers.get("retry-after") || "0") * 1000;
-				await new Promise((resolve) => setTimeout(resolve, retryAfter));
-			}
-		}
-		const page = await getPage(link.url);
-		await parsePageChapter(link.url);
-		return page.content || [];
-	};
-
-	const jobContext = {
-		pageIndex: index,
-		url: link.url,
-	};
-
-	return pageQueue.addJob(async () => {
-		try {
-			const content = await task();
-			return content;
-		} catch (error) {
-			console.error(`Error fetching chapter:`, error);
-			throw error; // Re-throw to handle in the queue
-		}
-	}, jobContext);
+	await queueFetch(link.url, index);
+	const page = await getPage(link.url);
+	await parsePageChapter(link.url);
+	return page.content || [];
 }

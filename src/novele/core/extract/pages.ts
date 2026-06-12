@@ -10,24 +10,59 @@ export type Page = {
 
 const paraSelector = {
     "www.52shuku.vip": ".article-content",
-    "www.52shukuw.cc": ".book_con",
-    "www.52shuku123.cc": ".readcontent",
+    "www.dameishuwang.net": ".readcontent",
     "www.sunzhinan.com": "#article",
-    "www.sanhebook.com": "#content-txt",
     "www.xbanxia.com": "#nr1",
-    "www.256wx.net": "#nr1",
+    "www.256wx.org": "#nr1",
     "www.zhenhunxiaoshuo.com": ".article-content",
 }[hostname];
 const titleSelector = {
     "www.sunzhinan.com": ".style_h1",
-    "www.sanhebook.com": ".panel-heading",
     "www.xbanxia.com": "#nr_title",
     "www.zhenhunxiaoshuo.com": ".article-header > .article-title",
-    "www.52shukuw.cc": "#nr_title",
     "www.52shuku.vip": "#nr_title",
 }[hostname];
 
 const pages: Map<string, Page> = new Map();
+
+function nextPaginatedUrl(url: string, pageIndex: number): string {
+    return url.replace(/(_1)?\.html(?:([?#].*)?)$/, `_${pageIndex}.html$2`);
+}
+
+function getAdditionalPageUrls(url: string, html: string): string[] {
+    const urls: string[] = [];
+    for (let i = 2; ; i++) {
+        const pageUrl = new URL(nextPaginatedUrl(url, i), url);
+        const nextPath = pageUrl.pathname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const hasNextPage = new RegExp(`href=["'][^"']*${nextPath}[^"']*["']`).test(html);
+        if (!hasNextPage) break;
+        urls.push(pageUrl.href);
+    }
+    return urls;
+}
+
+async function fetchPageText(url: string): Promise<string> {
+    if (url === window.location.href) return document.documentElement.outerHTML;
+    const stored = sessionStorage.getItem(url);
+    if (stored && stored.length > 0) {
+        console.debug(`Using cached page from sessionStorage: ${url}`);
+        return stored;
+    }
+    for (;;) {
+        const response = await fetch(url, { cache: "force-cache" });
+        if (response.status === 429) {
+            const retryAfter = parseInt(response.headers.get("retry-after") || "0", 10) * 1000;
+            await new Promise((resolve) => setTimeout(resolve, retryAfter));
+            continue;
+        }
+        if (!response.ok) {
+            throw new Error("ERROR", { cause: response });
+        }
+        const responseText = await response.text();
+        if (sessionStorage) sessionStorage.setItem(url, responseText);
+        return responseText;
+    }
+}
 
 export async function fetchPage(link: Link) {
     if (pages.has(link.url)) {
@@ -44,23 +79,8 @@ export async function fetchPage(link: Link) {
         });
         return;
     }
-    const stored = sessionStorage.getItem(link.url);
-    if (stored && stored.length > 0) {
-        pages.set(link.url, {
-            raw: stored,
-            title
-        });
-        console.debug(`Using cached page from sessionStorage: ${link.url}`);
-        return;
-    }
-    const response = await fetch(link.url, { cache: "force-cache" });
-    if (!response.ok) {
-        throw new Error("ERROR", { cause: response });
-    }
-    const responseText = await response.text();
-    if (sessionStorage) sessionStorage.setItem(link.url, responseText);
     pages.set(link.url, {
-        raw: responseText,
+        raw: await fetchPageText(link.url),
         title
     });
 }
@@ -124,8 +144,16 @@ export async function parsePage(url: string) {
     if (!page.dom) throw new Error("Page DOM not available");
 
     const [_content, _title] = await Promise.all([getContent(page.dom), getTitle(page.dom)]);
+    const additionalUrls = getAdditionalPageUrls(url, page.dom.documentElement.outerHTML);
+    const additionalDocs = await Promise.all(additionalUrls.map(async (pageUrl) => {
+        const parser = new DOMParser();
+        return parser.parseFromString(await fetchPageText(pageUrl), "text/html");
+    }));
+    const additionalContent = await Promise.all(additionalDocs.map((doc) => getContent(doc)));
+    const additionalTitle = await Promise.all(additionalDocs.map((doc) => getTitle(doc)));
     page.content = _content;
-    page.title = new Set([...page.title, ..._title]);
+    page.content.push(...additionalContent.flat());
+    page.title = new Set([...page.title, ..._title, ...additionalTitle.flatMap((title) => [...title])]);
 
     delete page.dom;
     pages.set(url, page);
