@@ -1,7 +1,14 @@
 import { JobQueue } from "../../util/job-queue";
 import type { Link } from "./extract/links";
 import { parsePageChapter } from "./extract/chapters";
-import { fetchPage, getPage, parsePageDom } from "./extract/pages";
+import {
+	getAdditionalPageUrls,
+	getPage,
+	parsePageDom,
+	registerCurrentPage,
+	registerPageRaw,
+	setAdditionalPageUrls,
+} from "./extract/pages";
 
 interface FetchContext {
 	orderHint: number;
@@ -20,18 +27,26 @@ const fetchQueue = new JobQueue<FetchContext, QueueContext, void>(
 
 const inFlightFetches = new Map<string, Promise<void>>();
 
-async function fetchPageWithRetry(link: Link): Promise<void> {
+async function fetchPageText(url: string): Promise<string> {
+	if (url === window.location.href) return document.documentElement.outerHTML;
+	const stored = sessionStorage.getItem(url);
+	if (stored && stored.length > 0) {
+		console.debug(`Using cached page from sessionStorage: ${url}`);
+		return stored;
+	}
 	for (;;) {
-		try {
-			await fetchPage(link);
-			return;
-		} catch (err: any) {
-			console.error(`Error fetching page ${link.url}:`, err);
-			const response: Response | undefined = err?.cause;
-			if (!response || response.status !== 429) throw err;
+		const response = await fetch(url, { cache: "force-cache" });
+		if (response.status === 429) {
 			const retryAfter = parseInt(response.headers.get("retry-after") || "0", 10) * 1000;
 			await new Promise((resolve) => setTimeout(resolve, retryAfter));
+			continue;
 		}
+		if (!response.ok) {
+			throw new Error("ERROR", { cause: response });
+		}
+		const responseText = await response.text();
+		if (sessionStorage) sessionStorage.setItem(url, responseText);
+		return responseText;
 	}
 }
 
@@ -41,7 +56,11 @@ async function queueFetch(url: string, orderHint: number): Promise<void> {
 
 	const promise = fetchQueue.addJob(async () => {
 		try {
-			await fetchPageWithRetry({ url });
+			if (url === window.location.href) {
+				registerCurrentPage(url);
+				return;
+			}
+			registerPageRaw(url, await fetchPageText(url));
 		} finally {
 			inFlightFetches.delete(url);
 		}
@@ -66,6 +85,18 @@ export async function queueChapterFetch(
 	index: number,
 ): Promise<string[]> {
 	await queueFetch(link.url, index);
+	const pageState = await parsePageDom(link.url);
+	if (!pageState.dom) throw new Error(`page DOM not available: ${link.url}`);
+	const additionalUrls = getAdditionalPageUrls(
+		link.url,
+		pageState.dom.documentElement.outerHTML,
+	);
+	setAdditionalPageUrls(link.url, additionalUrls);
+	await Promise.all(
+		additionalUrls.map((url, extraIndex) =>
+			queueFetch(url, index + extraIndex + 0.1),
+		),
+	);
 	const page = await getPage(link.url);
 	await parsePageChapter(link.url);
 	return page.content || [];

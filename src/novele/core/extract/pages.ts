@@ -1,11 +1,10 @@
 import { hostname } from "./hostname-map";
-import type { Link } from "./links";
-
 export type Page = {
     raw?: string;
     dom?: Document;
     title: Set<string>;
     content?: string[];
+    additionalUrls?: string[];
 }
 
 const paraSelector = {
@@ -29,7 +28,7 @@ function nextPaginatedUrl(url: string, pageIndex: number): string {
     return url.replace(/(_1)?\.html(?:([?#].*)?)$/, `_${pageIndex}.html$2`);
 }
 
-function getAdditionalPageUrls(url: string, html: string): string[] {
+export function getAdditionalPageUrls(url: string, html: string): string[] {
     const urls: string[] = [];
     for (let i = 2; ; i++) {
         const pageUrl = new URL(nextPaginatedUrl(url, i), url);
@@ -41,47 +40,41 @@ function getAdditionalPageUrls(url: string, html: string): string[] {
     return urls;
 }
 
-async function fetchPageText(url: string): Promise<string> {
-    if (url === window.location.href) return document.documentElement.outerHTML;
-    const stored = sessionStorage.getItem(url);
-    if (stored && stored.length > 0) {
-        console.debug(`Using cached page from sessionStorage: ${url}`);
-        return stored;
-    }
-    for (;;) {
-        const response = await fetch(url, { cache: "force-cache" });
-        if (response.status === 429) {
-            const retryAfter = parseInt(response.headers.get("retry-after") || "0", 10) * 1000;
-            await new Promise((resolve) => setTimeout(resolve, retryAfter));
-            continue;
-        }
-        if (!response.ok) {
-            throw new Error("ERROR", { cause: response });
-        }
-        const responseText = await response.text();
-        if (sessionStorage) sessionStorage.setItem(url, responseText);
-        return responseText;
-    }
+function mergeTitle(current: Set<string>, title?: string) {
+    if (!title) return current;
+    return new Set([...current, title]);
 }
 
-export async function fetchPage(link: Link) {
-    if (pages.has(link.url)) {
-        console.warn(`Page already fetched: ${link.url}`);
-        return;
-    }
-    const title: Set<string> = link.title ? new Set([link.title]) : new Set();
-    if (link.url === window.location.href) {
-        console.debug(`Fetching current page: ${link.url}`);
-        pages.set(link.url, {
-            raw: document.documentElement.outerHTML,
-            dom: document,
-            title
-        });
-        return;
-    }
-    pages.set(link.url, {
-        raw: await fetchPageText(link.url),
-        title
+export function registerPageRaw(url: string, raw: string, title?: string) {
+    const page = pages.get(url);
+    pages.set(url, {
+        ...page,
+        raw,
+        title: mergeTitle(page?.title ?? new Set<string>(), title),
+        content: page?.content,
+        dom: page?.dom,
+        additionalUrls: page?.additionalUrls,
+    });
+}
+
+export function registerCurrentPage(url: string, title?: string) {
+    const page = pages.get(url);
+    pages.set(url, {
+        ...page,
+        raw: document.documentElement.outerHTML,
+        dom: document,
+        title: mergeTitle(page?.title ?? new Set<string>(), title),
+        content: page?.content,
+        additionalUrls: page?.additionalUrls,
+    });
+}
+
+export function setAdditionalPageUrls(url: string, additionalUrls: string[]) {
+    if (!pages.has(url)) throw new Error("Page not fetched");
+    const page = pages.get(url)!;
+    pages.set(url, {
+        ...page,
+        additionalUrls,
     });
 }
 
@@ -144,10 +137,11 @@ export async function parsePage(url: string) {
     if (!page.dom) throw new Error("Page DOM not available");
 
     const [_content, _title] = await Promise.all([getContent(page.dom), getTitle(page.dom)]);
-    const additionalUrls = getAdditionalPageUrls(url, page.dom.documentElement.outerHTML);
+    const additionalUrls = page.additionalUrls ?? [];
     const additionalDocs = await Promise.all(additionalUrls.map(async (pageUrl) => {
-        const parser = new DOMParser();
-        return parser.parseFromString(await fetchPageText(pageUrl), "text/html");
+        const additionalPage = await parsePageDom(pageUrl);
+        if (!additionalPage.dom) throw new Error(`additional page DOM not available: ${pageUrl}`);
+        return additionalPage.dom;
     }));
     const additionalContent = await Promise.all(additionalDocs.map((doc) => getContent(doc)));
     const additionalTitle = await Promise.all(additionalDocs.map((doc) => getTitle(doc)));
@@ -161,10 +155,7 @@ export async function parsePage(url: string) {
 }
 
 export async function getPage(url: string): Promise<Page> {
-    if (pages && !pages.has(url)) {
-        console.warn(`Page not fetched, fetching now: ${url}`, pages);
-        await fetchPage({ url });
-    }
+    if (!pages.has(url)) throw new Error(`Page not fetched: ${url}`);
     const page = await parsePage(url);
     if (!page.content || !page.title) {
         throw new Error("Page content or title not available");
