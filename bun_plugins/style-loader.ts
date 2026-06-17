@@ -1,7 +1,12 @@
 // Ported from https://github.com/taggon/bun-style-loader
 
 import type { BunPlugin, OnLoadResult } from "bun";
-import { browserslistToTargets, transform, type CSSModulesConfig } from "lightningcss-wasm";
+import {
+	browserslistToTargets,
+	Features,
+	transform,
+	type CSSModulesConfig,
+} from "lightningcss-wasm";
 import * as sass from "sass";
 import fs from "node:fs";
 
@@ -53,6 +58,17 @@ type CompileOptions = {
 	targets?: string[];
 };
 
+function restoreBackdropFilterFallback(css: string): string {
+	return css.replace(
+		/-webkit-backdrop-filter:\s*([^;]+);/g,
+		(match, value, offset, source) => {
+			const tail = source.slice(offset + match.length, offset + match.length + 80);
+			if (tail.includes("backdrop-filter")) return match;
+			return `-webkit-backdrop-filter:${value};backdrop-filter:${value};`;
+		},
+	);
+}
+
 async function compileCSS(
 	content: string,
 	path: string,
@@ -67,6 +83,7 @@ async function compileCSS(
 		code: new Uint8Array(Buffer.from(content)),
 		cssModules: options.cssModules,
 		minify: true,
+		include: Features.VendorPrefixes,
 		targets,
 		visitor: {
 			Rule: {
@@ -78,19 +95,21 @@ async function compileCSS(
 		},
 	});
 
+	const cssText = restoreBackdropFilterFallback(code.toString());
+
 	if (options.cssModules) {
 		const nameMap = Object.fromEntries(
 			Object.entries(exports || {}).map(([key, item]) => [key, item.name]),
 		);
 		return {
-			contents: `export const code = ${JSON.stringify(code.toString())};\nexport default ${JSON.stringify(nameMap)};`,
+			contents: `export const code = ${JSON.stringify(cssText)};\nexport default ${JSON.stringify(nameMap)};`,
 			loader: "js",
 		};
 	}
 
 	if (imports.length === 0) {
 		return {
-			contents: `export default ${JSON.stringify(code.toString())};`,
+			contents: `export default ${JSON.stringify(cssText)};`,
 			loader: "js",
 		};
 	}
@@ -101,7 +120,7 @@ async function compileCSS(
 	const exported = imports.map((_, i) => `_css${i}`).join(" + ");
 
 	return {
-		contents: `${imported}\nexport default ${exported} + ${JSON.stringify(code.toString())};`,
+		contents: `${imported}\nexport default ${exported} + ${JSON.stringify(cssText)};`,
 		loader: "js",
 	};
 }

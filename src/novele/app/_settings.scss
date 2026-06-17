@@ -1,0 +1,240 @@
+@use "../../style/easing-duation" as *;
+
+@mixin slider-thumb($include-margin-top: false) {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--color-primary);
+	cursor: pointer;
+
+	@if $include-margin-top {
+		margin-top: -6px;
+	}
+}
+
+@mixin slider-track {
+	height: 4px;
+	border-radius: 2px;
+	background: var(--color-border-glass);
+}
+
+@mixin settings {
+	.settingsBody {
+		display: flex;
+		flex-direction: column;
+		padding: var(--ui-set-body-pad);
+		overflow-y: auto;
+	}
+
+	.tabSwitcher {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: var(--ui-tab-mb);
+		padding: var(--ui-tab-pad);
+		background-color: var(--color-surface);
+		border: 1px solid var(--color-border-glass);
+		border-radius: 999px;
+
+		button {
+			flex: 1;
+			padding: var(--ui-tab-btn-pad);
+			border-radius: 999px;
+			font-size: var(--ui-tab-btn-txt);
+			font-family: var(--font-ui);
+			font-weight: 500;
+			color: var(--color-muted);
+			cursor: pointer;
+			transition: all $duration-short4 $easing-standard;
+
+			&:hover {
+				color: var(--color-text-main);
+			}
+
+			&.active {
+				color: var(--color-primary);
+				background-color: rgb(255 255 255 / 0.05);
+			}
+		}
+	}
+
+	.tabContent {
+		display: flex;
+		flex-direction: column;
+		gap: var(--ui-tab-gap);
+	}
+
+	.settingsGroup {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.inlineSetting {
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.label {
+		display: block;
+		margin-bottom: var(--ui-lbl-mb);
+		font-size: var(--ui-lbl-txt);
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--color-muted);
+	}
+
+	.inlineSetting .label,
+	.sliderHeader .label {
+		margin-bottom: 0;
+	}
+
+	.buttonRow {
+		display: flex;
+		gap: 0.5rem;
+
+		button {
+			flex: 1;
+			padding: var(--ui-btn-row-pad);
+			border: 1px solid var(--color-border-glass);
+			border-radius: 999px;
+			font-size: var(--ui-btn-row-txt);
+			cursor: pointer;
+			transition:
+				color $duration-short4 $easing-standard,
+				background-color $duration-short4 $easing-standard,
+				border-color $duration-short4 $easing-standard;
+
+			&.active {
+				border-color: var(--color-primary);
+				background-color: var(--color-surface-hover);
+				color: var(--color-primary);
+			}
+
+			&.inactive {
+				color: var(--color-muted);
+
+				&:hover {
+					color: var(--color-text-main);
+					background-color: var(--color-surface);
+				}
+			}
+		}
+	}
+
+	.sliderHeader {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: var(--ui-slide-head-mb);
+	}
+
+	.value {
+		font-size: 0.875rem;
+		font-family: var(--font-ui);
+		color: var(--color-primary);
+	}
+
+	.settingsGroup input[type="range"] {
+		width: 100%;
+		background: transparent;
+		appearance: none;
+
+		&::-webkit-slider-thumb {
+			@include slider-thumb(true);
+			appearance: none;
+		}
+
+		&::-webkit-slider-runnable-track {
+			@include slider-track;
+		}
+
+		&::-moz-range-thumb {
+			@include slider-thumb;
+			border: 0;
+		}
+
+		&::-moz-range-track {
+			@include slider-track;
+		}
+	}
+
+	.toggle {
+		position: relative;
+		width: 40px;
+		height: 24px;
+		border-radius: 999px;
+		background-color: var(--color-border-glass);
+		cursor: pointer;
+		transition: background-color $duration-short4 $easing-standard;
+
+		&.enabled {
+			background-color: var(--color-primary);
+		}
+	}
+
+	.toggleThumb {
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background-color: white;
+		transition: transform $duration-short4 $easing-standard;
+	}
+
+	.toggle.enabled .toggleThumb {
+		transform: translateX(16px);
+	}
+
+	.colorPicker button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.25rem;
+
+		&:hover {
+			background-color: var(--color-surface);
+		}
+	}
+
+	.colorButton {
+		border: 2px solid transparent;
+
+		&.active {
+			background: transparent;
+		}
+	}
+
+	.colorSwatch {
+		width: 1.5rem;
+		height: 1.5rem;
+		border-radius: 50%;
+		box-shadow: 0 2px 4px rgb(0 0 0 / 0.15);
+	}
+
+	.swatchCyan,
+	.swatchEmerald,
+	.swatchAmber,
+	.swatchRose {
+		.colorSwatch {
+			background-color: var(--swatch-color);
+		}
+	}
+
+	.swatchCyan {
+		--swatch-color: #00e5ff;
+	}
+
+	.swatchEmerald {
+		--swatch-color: #10b981;
+	}
+
+	.swatchAmber {
+		--swatch-color: #f59e0b;
+	}
+
+	.swatchRose {
+		--swatch-color: #f43f5e;
+	}
+}

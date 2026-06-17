@@ -1,0 +1,105 @@
+@use "../../style/easing-duation" as *;
+
+@mixin controls {
+	.topBar {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 40;
+		display: flex;
+		justify-content: center;
+		padding: var(--ui-top-pad);
+		pointer-events: none;
+		transform: translateY(-100px);
+		opacity: 0;
+		transition:
+			transform $duration-medium2 $easing-standard,
+			opacity $duration-medium2 $easing-standard;
+	}
+
+	.bottomBar {
+		position: fixed;
+		right: var(--ui-bot-right);
+		bottom: var(--ui-bot-bot);
+		z-index: 40;
+		display: flex;
+		align-items: center;
+		gap: var(--ui-bot-gap);
+		pointer-events: none;
+		transform: translateY(100px);
+		opacity: 0;
+		transition:
+			transform $duration-medium2 $easing-standard,
+			opacity $duration-medium2 $easing-standard;
+	}
+
+	.visible {
+		transform: translateY(0);
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	.glassBadge {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: var(--ui-badge-pad);
+		border-radius: 999px;
+		box-shadow: var(--shadow-glow-primary);
+		pointer-events: auto;
+
+		span {
+			font-size: var(--ui-badge-txt);
+			font-weight: 500;
+			letter-spacing: 0.025em;
+		}
+	}
+
+	.glassNav {
+		display: flex;
+		align-items: center;
+		gap: var(--ui-nav-gap);
+		height: var(--ui-nav-h);
+		padding: var(--ui-nav-pad);
+		border-radius: 999px;
+		box-shadow: var(--shadow-glow-primary);
+	}
+
+	.glassArrows {
+		padding: var(--ui-arrow-pad);
+		gap: var(--ui-arrow-gap);
+	}
+
+	.navButton {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.5rem;
+		border-radius: 999px;
+		color: var(--color-muted);
+		cursor: pointer;
+		transition:
+			color $duration-short4 $easing-standard,
+			background-color $duration-short4 $easing-standard;
+
+		&:hover:not(:disabled) {
+			color: var(--color-text-main);
+			background-color: rgb(255 255 255 / 0.05);
+		}
+
+		&:disabled {
+			cursor: default;
+			opacity: 0.35;
+		}
+
+		svg {
+			width: 24px;
+			height: 24px;
+		}
+	}
+
+	.active {
+		color: var(--color-primary);
+	}
+}

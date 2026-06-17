@@ -1,90 +1,172 @@
 import van from "vanjs-core";
 import nameMap from "./style.module.scss";
-import {
-    Direction,
-    HorizonDir,
-    IconChevron,
-    IconPanel,
-    PanelState,
-} from "../../style/icon";
-import { TextField } from "./component/text-field";
-import { BottomBar } from "./bottom-bar";
-import { resolveLinks, subscribeLinks } from "../core/extract/links";
-import { queueChapterFetch, updateCurrentPage } from "../core/queue";
-import { getChapter } from "../core/extract/chapters";
-import { findPage } from "../core/extract/pages";
+import { TopBar, BottomControls } from "./controls";
+import { OverlayBackdrop, OverlayPanels } from "./overlays";
+import { createReaderData } from "./reader-data";
+import type { UiState } from "./state";
 import { nav } from "../core/nav";
+import { updateCurrentPage } from "../core/queue";
 
-const { button, div, p, input } = van.tags;
+const { div, h1, main, p } = van.tags;
 
-const content = van.state([
-    "Testing text",
-    "In the heart of the bustling city, where the streets were alive with the sounds of laughter and the aroma of street food wafted through the air, there was a small café that seemed to exist in its own world. The walls were adorned with vibrant art, and the soft melodies of a piano could be heard as patrons sipped their coffee, lost in conversation or deep in thought.",
-    "As the sun began to set, casting a warm golden hue over the horizon, the city transformed. The skyscrapers glistened against the fading light, and the nightlife began to awaken. People poured into the streets, eager to experience the energy that only the night could bring, filled with anticipation of the adventures that lay ahead.",
-    "Amidst the chaos, a young artist sat  alone at a corner table, sketching the world around her. Each stroke of her pencil captured the essence of the moment, a fleeting glimpse of life that would soon be forgotten. She found solace in her art, a way to express the emotions that often felt too heavy to bear.",
-    div(
-        (() => {
-            const _arr = [];
-            for (let _state = 0; _state < 3; _state++)
-                for (let _dir = 0; _dir < 4; _dir++)
-                    _arr.push(
-                        div(
-                            { class: `${nameMap.icon} ${nameMap.demo}` },
-                            IconPanel(_dir, _state),
-                        ),
-                    );
-            return _arr;
-        })(),
-    ),
-    div(
-        TextField({
-            label: "Title",
-        }),
-    ),
-]);
+const textSizePresetMap = {
+	compact: 15,
+	regular: 19,
+	relaxed: 23,
+} as const;
 
-export const Reader = () => {
-    const chapters = van.state<Map<number, string[]>>(new Map());
-    const queuedLinks = new Set<string>();
+const lineSpacingPresetMap = {
+	compact: 1.375,
+	regular: 1.625,
+	relaxed: 2,
+} as const;
 
-    // Initialize chapters and content
-    van.derive(() => {
-        const unsubscribe = subscribeLinks((links) => {
-            links.forEach((link, index) => {
-                if (queuedLinks.has(link.url)) return;
-                queuedLinks.add(link.url);
-                queueChapterFetch(link, index).then((content) => {
-                    chapters.val = new Map(chapters.val.set(index, content));
-                });
-            });
-        });
-        void resolveLinks(document);
-        return unsubscribe;
-    });
+const readingWidthPresetMap = {
+	narrow: 36,
+	regular: 42,
+	wide: 48,
+} as const;
 
-    // Update queue priority when current chapter changes
-    van.derive(() => {
-        updateCurrentPage(nav.index.val);
-    });
+function readerStyle(ui: UiState) {
+	return () => {
+		const fontSize = ui.typographyMode.val === "slider"
+			? ui.textSizeValue.val
+			: textSizePresetMap[ui.textSizePreset.val];
+		const lineHeight = ui.typographyMode.val === "slider"
+			? ui.lineSpacingValue.val
+			: lineSpacingPresetMap[ui.lineSpacingPreset.val];
+		const readingWidth = ui.typographyMode.val === "slider"
+			? ui.readingWidthValue.val
+			: readingWidthPresetMap[ui.readingWidthPreset.val];
+		const paddingY = ui.typographyMode.val === "slider"
+			? Math.max(1, (60 - ui.readingWidthValue.val) / 3)
+			: ui.readingWidthPreset.val === "narrow"
+				? 8
+				: ui.readingWidthPreset.val === "wide"
+					? 4
+					: 6;
+		return [
+			`font-size:${fontSize}px`,
+			`line-height:${lineHeight}`,
+			`max-width:${readingWidth}rem`,
+			`padding:${paddingY}rem 1.5rem`,
+		].join(";");
+	};
+}
 
-    // Render the current chapter's content
-    const chapterContent = van.derive(() => {
-        try {
-            const pages = getChapter(nav.index.val).pages;
-            const content: string[] = pages.flatMap(url =>
-                findPage(url).content || []
-            );
-            return content || [];
-        } catch (error) {
-            console.error(`Error fetching chapter ${nav.index.val}:`, error);
-            return [];
-        }
-    });
+function currentTypefaceClass(ui: UiState) {
+	switch (ui.typeface.val) {
+		case "fontUi":
+			return nameMap.fontUi;
+		case "fontLiterata":
+			return nameMap.fontLiterata;
+		default:
+			return nameMap.fontReader;
+	}
+}
 
-    return div(
-        { class: nameMap.reader },
-        () => div({ class: nameMap.content },
-            chapterContent.val.map((text, index) => p({ key: index, class: nameMap.text }, text),)),
-        BottomBar(),
-    );
-};
+export function Reader(open: van.State<boolean>, ui: UiState) {
+	const data = createReaderData();
+
+	van.derive(() => {
+		void updateCurrentPage(nav.index.val);
+	});
+
+	let controlsTimeout: ReturnType<typeof setTimeout> | undefined;
+	const resetControlsTimeout = () => {
+		if (controlsTimeout) clearTimeout(controlsTimeout);
+		if (!open.val || ui.activeOverlay.val) {
+			ui.controlsVisible.val = true;
+			return;
+		}
+		ui.controlsVisible.val = true;
+		controlsTimeout = setTimeout(() => {
+			ui.controlsVisible.val = false;
+		}, 3000);
+	};
+
+	van.derive(() => {
+		open.val;
+		ui.activeOverlay.val;
+		resetControlsTimeout();
+	});
+
+	van.derive(() => {
+		if (!open.val) {
+			ui.activeOverlay.val = null;
+			ui.controlsVisible.val = true;
+		}
+	});
+
+	const onInteraction = () => {
+		resetControlsTimeout();
+	};
+
+	const textContentRoot = div({ class: nameMap.textContent });
+
+	van.derive(() => {
+		const content = data.currentContent.val;
+		const status = data.currentStatus.val;
+		const children = [];
+		if (status.error) {
+			children.push(
+				h1(data.currentTitle.val),
+				p({ class: nameMap.statusText }, status.error),
+			);
+		} else if (status.loading && !content.length) {
+			children.push(
+				h1(data.currentTitle.val),
+				p({ class: nameMap.statusText }, "Loading chapter content..."),
+			);
+		} else if (!content.length) {
+			children.push(
+				h1(data.currentTitle.val),
+				p(
+					{ class: nameMap.statusText },
+					data.links.val.length
+						? "No readable content was extracted from this chapter yet."
+						: "Discovering chapter links on this page...",
+				),
+			);
+		} else {
+			children.push(
+				h1(data.currentTitle.val),
+				...content.map((paragraphText) => p(paragraphText)),
+			);
+		}
+		textContentRoot.replaceChildren(...children);
+	});
+
+	const readerSurface = main(
+		{
+			class: () => [
+				nameMap.readerMain,
+				ui.activeOverlay.val ? nameMap.drawerOpen : "",
+				ui.panelPosition.val === "left" ? nameMap.panelLeft : nameMap.panelRight,
+				currentTypefaceClass(ui),
+			].filter(Boolean).join(" "),
+			style: readerStyle(ui),
+			onscroll: onInteraction,
+		},
+		textContentRoot,
+	);
+
+	return div(
+		{
+			class: nameMap.readerApp,
+			onmousemove: onInteraction,
+			onclick: onInteraction,
+			ontouchstart: onInteraction,
+		},
+		div(
+			{
+				class: nameMap.appContentWrapper,
+			},
+			readerSurface,
+			TopBar(ui, data, open),
+			BottomControls(ui, data, open),
+			OverlayBackdrop(ui),
+			...OverlayPanels(ui, data, onInteraction),
+		),
+	);
+}

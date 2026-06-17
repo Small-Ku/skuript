@@ -68,6 +68,29 @@ const innerRect = (
 	height: number,
 ) => `${startx} ${starty}v${height}h${width}v${-1 * height}h${-1 * width}Z`;
 
+const repeatedRects = (
+	startx: number,
+	width: number,
+	height: number,
+	ys: number[],
+) => ys.map((y) => `M${innerRect(startx, y, width, height)}`).join("");
+
+const barRect = (x: number, y: number, width: number) =>
+	`M${innerRect(x, y, width, -80)}`;
+
+const arrowHead = (
+	x: number,
+	y: number,
+	startDx: number,
+	startDy: number,
+	span: number,
+) => `M${x}${y}l${startDx} ${startDy} ${span} ${span} ${-span} ${span}Z`;
+
+const tocDot = (y: number) =>
+	`M800${y}q-17 0-28.5-11.5T760${y - 40}q0-17 11.5-28.5T800${y - 80}q17 0 28.5 11.5T840${y - 40}q0 17-11.5 28.5T800${y}Z`;
+
+const tuneStem = (x: number, y: number) => `M${innerRect(x, y, 80, -240)}`;
+
 const smallRect = (dir: Direction) => {
 	return innerRect(
 		dir === Direction.Left ? 320 : dir < Direction.Bottom ? 760 : 200,
@@ -120,10 +143,56 @@ export const IconPanel = (
 
 export const IconReadMore = (prop?: Record<string, PropValueOrDerived>) =>
 	_icon(
-		"m298-262-56-56 121-122H80v-80h283L242-642l56-56 218 218-218 218Zm222-18v-80h360v80H520Zm0-320v-80h360v80H520Zm120 160v-80h240v80H640Z", prop
+		[
+			"M298-262l-56-56 121-122H80v-80h283L242-642",
+			arrowHead(242, -642, 56, -56, 218),
+			barRect(520, -280, 360),
+			barRect(520, -600, 360),
+			barRect(640, -440, 240),
+		].join(""),
+		prop,
 	);
 
 export const IconExitToApp = (prop?: Record<string, PropValueOrDerived>) =>
 	_icon(
-		"M200-120q-33 0-56.5-23.5T120-200v-160h80v160h560v-560H200v160h-80v-160q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm220-160-56-58 102-102H120v-80h346L364-622l56-58 200 200-200 200Z", prop
+		[
+			"M200-120q-33 0-56.5-23.5T120-200v-160h80v160h560v-560H200v160h-80v-160q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Z",
+			"M420-280l-56-58 102-102H120v-80h346L364-622",
+			arrowHead(364, -622, 56, -58, 200),
+		].join(""),
+		prop,
+	);
+
+export const IconToc = (prop?: Record<string, PropValueOrDerived>) =>
+	_icon(
+		`${repeatedRects(120, 560, -80, [-280, -440, -600])}${[-280, -440, -600].map(tocDot).join("")}`,
+		prop,
+	);
+
+export const IconComment = (prop?: Record<string, PropValueOrDerived>) =>
+	_icon(
+		`${repeatedRects(240, 480, -80, [-400, -520, -640])}M880-80 720-240H160q-33 0-56.5-23.5T80-320v-480q0-33 23.5-56.5T160-880h640q33 0 56.5 23.5T880-800v720ZM160-320h594l46 45v-525H160v480Zm0 0v-480 480Z`,
+		prop,
+	);
+
+export const IconTune = (prop?: Record<string, PropValueOrDerived>) =>
+	_icon(
+		[
+			tuneStem(440, -120),
+			barRect(520, -200, 320),
+			barRect(120, -200, 240),
+			barRect(120, -440, 160),
+			tuneStem(280, -360),
+			barRect(440, -440, 400),
+			tuneStem(600, -600),
+			barRect(680, -680, 160),
+			barRect(120, -680, 400),
+		].join(""),
+		prop,
+	);
+
+export const IconClose = (prop?: Record<string, PropValueOrDerived>) =>
+	_icon(
+		"M256-200 200-256l224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z",
+		prop,
 	);
