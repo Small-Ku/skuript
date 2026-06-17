@@ -1,6 +1,12 @@
 import { JobQueue } from "../../util/job-queue";
 import { resolvePageChapter } from "./extract/chapters";
+import {
+	getCachedCommentBundle,
+	parseCommentPage,
+	type CommentBundle,
+} from "./extract/comments";
 import type { Link } from "./extract/links";
+import type { CommentPageRef } from "./extract/storage";
 import {
 	getAdditionalPageUrls,
 	getPage,
@@ -9,6 +15,7 @@ import {
 	peekPage,
 	registerCurrentPage,
 	registerPageRaw,
+	releasePageDom,
 	setAdditionalPageUrls,
 } from "./extract/pages";
 
@@ -115,6 +122,29 @@ export async function fetchDocument(
 	const page = await parsePageDom(url);
 	if (!page.dom) throw new Error(`page DOM not available: ${url}`);
 	return page.dom;
+}
+
+export async function queueCommentFetch(
+	refs: CommentPageRef[],
+	orderHint = 0,
+	onSettled?: (ref: CommentPageRef, error?: unknown) => void,
+): Promise<CommentBundle> {
+	await Promise.allSettled(
+		refs.map((ref) =>
+			fetchDocument(ref.url, orderHint + ref.pageNumber / 100)
+				.then((doc) => {
+					parseCommentPage(doc, ref);
+					onSettled?.(ref);
+					releasePageDom(ref.url);
+				})
+				.catch((error) => {
+					onSettled?.(ref, error);
+					releasePageDom(ref.url);
+					throw error;
+				}),
+		),
+	);
+	return getCachedCommentBundle(refs);
 }
 
 export async function queueChapterFetch(

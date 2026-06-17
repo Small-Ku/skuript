@@ -7,22 +7,26 @@ import {
 	type StoredPage,
 	setPage as setStoredPage,
 } from "./storage";
+import { getCommentPageRefs } from "./comments";
 
 export type Page = StoredPage;
 
-const paraSelector = {
-	"www.52shuku.vip": ".article-content",
-	"www.dameishuwang.net": ".readcontent",
-	"www.sunzhinan.com": "#article",
-	"www.xbanxia.com": "#nr1",
-	"www.256wx.org": "#nr1",
-	"www.zhenhunxiaoshuo.com": ".article-content",
+const paraSelectors = {
+	"www.52shuku.vip": [".article-content"],
+	"www.dameishuwang.net": [".readcontent"],
+	"www.sunzhinan.com": ["#article"],
+	"www.xbanxia.com": ["#nr1"],
+	"www.256wx.org": ["#nr1"],
+	"www.zhenhunxiaoshuo.com": [".article-content", ".focusbox-text .text"],
 }[hostname];
-const titleSelector = {
-	"www.sunzhinan.com": ".style_h1",
-	"www.xbanxia.com": "#nr_title",
-	"www.zhenhunxiaoshuo.com": ".article-header > .article-title",
-	"www.52shuku.vip": "#nr_title",
+const titleSelectors = {
+	"www.sunzhinan.com": [".style_h1"],
+	"www.xbanxia.com": ["#nr_title"],
+	"www.zhenhunxiaoshuo.com": [
+		".article-header > .article-title",
+		".focusbox-title",
+	],
+	"www.52shuku.vip": ["#nr_title"],
 }[hostname];
 const contentCleanupSelectors = {
 	"www.52shuku.vip": [
@@ -152,13 +156,23 @@ export async function parsePageDom(url: string) {
 	return page;
 }
 
+export function releasePageDom(url: string) {
+	const page = getStoredPage(url);
+	if (!page?.dom) return;
+	delete page.dom;
+	persistPage(page);
+}
+
 export async function getContent(doc: Document): Promise<string[]> {
-	if (!paraSelector) return [];
+	if (!paraSelectors?.length) return [];
 	const mergedContent: string[] = [];
-	for (const root of Array.from(doc.querySelectorAll(paraSelector))) {
+	for (const root of paraSelectors.flatMap((selector) =>
+		Array.from(doc.querySelectorAll(selector)),
+	)) {
 		const contentRoot = root.cloneNode(true) as Element;
 		cleanupContentRoot(contentRoot);
-		if (!contentRoot.childElementCount) continue;
+		if (!contentRoot.childElementCount && !contentRoot.textContent?.trim())
+			continue;
 		const content: string[] = [];
 		const tw = document.createTreeWalker(
 			contentRoot,
@@ -194,52 +208,15 @@ export async function getContent(doc: Document): Promise<string[]> {
 }
 
 export async function getTitle(doc: Document) {
-	if (!titleSelector) return new Set<string>();
+	if (!titleSelectors?.length) return new Set<string>();
 	return new Set(
-		Array.from(doc.querySelectorAll(titleSelector)).flatMap((elm) => {
-			const text = elm.textContent?.trim();
-			return text ? [text] : [];
-		}),
+		titleSelectors.flatMap((selector) =>
+			Array.from(doc.querySelectorAll(selector)).flatMap((elm) => {
+				const text = elm.textContent?.trim();
+				return text ? [text] : [];
+			}),
+		),
 	);
-}
-
-function getCommentPageUrls(doc: Document, url: string): CommentPageRef[] {
-	switch (hostname) {
-		case "www.zhenhunxiaoshuo.com": {
-			const firstPage = new URL(url);
-			firstPage.pathname = firstPage.pathname.replace(
-				/\/comment-page-\d+\/?$/,
-				"",
-			);
-			const links = Array.from(
-				doc.querySelectorAll<HTMLAnchorElement>(
-					'a.page-numbers[href*="comment-page-"]',
-				),
-			);
-			const maxPage = Math.max(
-				1,
-				...links.flatMap((link) => {
-					const pageNumber = Number(
-						link.href.match(/comment-page-(\d+)/)?.[1] ?? "",
-					);
-					return Number.isFinite(pageNumber) ? [pageNumber] : [];
-				}),
-			);
-			return Array.from({ length: maxPage }, (_, index) => {
-				const pageNumber = index + 1;
-				return {
-					url:
-						pageNumber === 1
-							? `${firstPage.href.replace(/\/$/, "")}/comment-page-1/`
-							: `${firstPage.href.replace(/\/$/, "")}/comment-page-${pageNumber}/`,
-					scope: "chapter",
-					pageNumber,
-				};
-			});
-		}
-		default:
-			return [];
-	}
 }
 
 function mergeSliceTitle(page: Page, slice: PageSlice) {
@@ -283,7 +260,7 @@ export async function parseStandalonePage(
 		getContent(page.dom),
 		getTitle(page.dom),
 	]);
-	const commentPages = getCommentPageUrls(page.dom, url);
+	const commentPages = getCommentPageRefs(page.dom, url, "chapter");
 	const slice = createPageSlice(
 		page,
 		url,

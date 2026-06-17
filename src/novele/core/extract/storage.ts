@@ -6,12 +6,23 @@ export type ChapterCandidate = {
 	source: "content" | "title";
 };
 
-export type CommentScope = "chapter" | "page";
+export type CommentScope = "catalog" | "chapter" | "page";
 
 export type CommentPageRef = {
 	url: string;
 	scope: CommentScope;
 	pageNumber: number;
+	ownerUrl?: string;
+};
+
+export type CommentItem = {
+	id: string;
+	author: string;
+	text: string[];
+	time: string;
+	parentId?: string;
+	pageNumber: number;
+	sourceUrl: string;
 };
 
 export type PageSlice = {

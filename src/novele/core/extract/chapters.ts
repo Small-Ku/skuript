@@ -42,6 +42,7 @@ type ChapterMarker = {
 const numberRegex = "[\\d零一二三四五六七八九千百十万亿兆]";
 const titleRegex = [
 	`第\\s*(${numberRegex}+)\\s*章`,
+	`^\\s*(${numberRegex}+)\\s*[.．、]\\s*\\S.*$`,
 	`(${numberRegex}+)\\s*正文完`,
 	`番外\\s*(${numberRegex}+)`,
 	`\\{bookTitle\\}[\\p{Unified_Ideograph}\\s：]*(${numberRegex}+)`,
@@ -369,8 +370,8 @@ export function resolvePageChapter(
 			resolvedChapter = getLinkBoundedChapter(page);
 			nextBoundaryFound = true;
 		}
-	} else if (linkIndex === 0 && orderedUrls.length > 1) {
-		nextBoundaryFound = Boolean(firstMarker);
+	} else if (linkIndex === 0 && orderedUrls.length > 1 && firstMarker) {
+		nextBoundaryFound = true;
 		resolvedChapter = getPrefaceChapter(
 			parsedPages,
 			firstMarker,

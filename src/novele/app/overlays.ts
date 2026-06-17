@@ -313,6 +313,15 @@ function settingsPanel(ui: UiState) {
 	);
 }
 
+function commentStatusText(data: ReaderData) {
+	const state = data.currentComments.val;
+	if (state.loading) return `Loading ${state.refs.length} comment page(s)...`;
+	if (state.error) return state.error;
+	if (!state.supported) return "No site comment section was found for this page.";
+	if (!state.items.length) return "No comments were extracted from this page.";
+	return "";
+}
+
 export function OverlayBackdrop(ui: UiState) {
 	return div({
 		class: () =>
@@ -334,6 +343,7 @@ export function OverlayPanels(
 		ui.activeOverlay.val = null;
 	};
 	const chapterNavRoot = nav({ class: nameMap.chapterNav });
+	const commentsRoot = div({ class: nameMap.commentsList, onscroll: onInteraction });
 
 	van.derive(() => {
 		const currentUrl =
@@ -358,6 +368,48 @@ export function OverlayPanels(
 		chapterNavRoot.replaceChildren(...chapterButtons);
 	});
 
+	van.derive(() => {
+		if (ui.activeOverlay.val === "comments") data.loadCurrentComments();
+	});
+
+	van.derive(() => {
+		const state = data.currentComments.val;
+		const status = commentStatusText(data);
+		if (status) {
+			commentsRoot.replaceChildren(
+				div(
+					{ class: nameMap.commentItem },
+					div(
+						{ class: nameMap.commentMeta },
+						span({ class: nameMap.user }, "Site comments"),
+						span({ class: nameMap.time }, state.loading ? "Loading" : "Idle"),
+					),
+					p({ class: nameMap.commentText }, status),
+				),
+			);
+			return;
+		}
+
+		commentsRoot.replaceChildren(
+			...state.items.map((comment) =>
+				div(
+					{ class: nameMap.commentItem },
+					div(
+						{ class: nameMap.commentMeta },
+						span({ class: nameMap.user }, comment.author),
+						span({ class: nameMap.time }, comment.time),
+					),
+					...comment.text.map((line) =>
+						p(
+							{ class: nameMap.commentText },
+							comment.parentId ? `> ${line}` : line,
+						),
+					),
+				),
+			),
+		);
+	});
+
 	return [
 		aside(
 			{
@@ -373,21 +425,7 @@ export function OverlayPanels(
 				onclick: (event) => event.stopPropagation(),
 			},
 			drawerHeader("Comments", close),
-			div(
-				{ class: nameMap.commentsList, onscroll: onInteraction },
-				div(
-					{ class: nameMap.commentItem },
-					div(
-						{ class: nameMap.commentMeta },
-						span({ class: nameMap.user }, "Site comments"),
-						span({ class: nameMap.time }, "Unavailable"),
-					),
-					p(
-						{ class: nameMap.commentText },
-						"Comments are not wired to the source site yet. This panel is part of the new UI shell and can be connected later.",
-					),
-				),
-			),
+			commentsRoot,
 			div(
 				{ class: nameMap.commentInputArea },
 				div(

@@ -47,13 +47,6 @@ const chapterNavSelectors = {
 	],
 }[hostname];
 
-const linkTransform = (() => {
-	switch (hostname) {
-		case "www.zhenhunxiaoshuo.com":
-			return (s: string) => `${s}/comment-page-1/`;
-	}
-})();
-
 let linkStore = new LinkedMap<Link, string>();
 const listeners = new Set<LinkListener>();
 let discoveryPromise: Promise<Link[]> | null = null;
@@ -62,10 +55,8 @@ function toLink(link: Element): Link {
 	const hrefAttr =
 		link instanceof HTMLAnchorElement ? link.href : link.getAttribute("href");
 	if (!hrefAttr) throw new Error("link href missing");
-	let href = hrefAttr;
-	if (linkTransform) href = linkTransform(href);
 	return {
-		url: href,
+		url: hrefAttr,
 		title: link.textContent?.trim(),
 	};
 }
@@ -153,6 +144,16 @@ function isPageNumberCatalog(links: Link[]): boolean {
 	);
 }
 
+function shouldPrependCurrentAsPreface(doc: Document, currentUrl?: string) {
+	if (!currentUrl) return false;
+	switch (hostname) {
+		case "www.zhenhunxiaoshuo.com":
+			return Boolean(doc.querySelector(".focusbox-text .text"));
+		default:
+			return false;
+	}
+}
+
 function isIndexLink(link: Link): boolean {
 	const text = link.title?.replace(/\s+/g, "") ?? "";
 	if (text.match(/目录|目錄|章节列表|章節列表|书页|書頁/)) return true;
@@ -235,6 +236,12 @@ export async function resolveLinks(doc: Document): Promise<Link[]> {
 		if (catalogLinks.length) {
 			const currentUrl = getDocumentUrl(doc);
 			if (currentUrl && isPageNumberCatalog(catalogLinks)) {
+				return replaceAllLinks([
+					{ url: currentUrl, title: "前置內容" },
+					...catalogLinks,
+				]);
+			}
+			if (shouldPrependCurrentAsPreface(doc, currentUrl)) {
 				return replaceAllLinks([
 					{ url: currentUrl, title: "前置內容" },
 					...catalogLinks,
