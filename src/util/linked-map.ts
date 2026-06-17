@@ -49,7 +49,6 @@ export class LinkedMap<TData, TId = string> {
 
 		// Update neighbor pointers
 		if (refItem.next) {
-			// biome-ignore lint/style/noNonNullAssertion: this is safe as we control the structure
 			const nextItem = this.items.get(refItem.next)!;
 			nextItem.prev = newItemId;
 		} else {
@@ -74,7 +73,6 @@ export class LinkedMap<TData, TId = string> {
 
 		// Update neighbor pointers
 		if (refItem.prev) {
-			// biome-ignore lint/style/noNonNullAssertion: this is safe as we control the structure
 			const prevItem = this.items.get(refItem.prev)!;
 			prevItem.next = newItemId;
 		} else {
@@ -114,7 +112,6 @@ export class LinkedMap<TData, TId = string> {
 		let currentId = this.head;
 
 		while (currentId) {
-			// biome-ignore lint/style/noNonNullAssertion: this is safe as we control the structure
 			const item = this.items.get(currentId)!;
 			result.push(item.data);
 			currentId = item.next;

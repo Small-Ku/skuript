@@ -1,14 +1,14 @@
 // Ported from https://github.com/taggon/bun-style-loader
 
+import fs from "node:fs";
 import type { BunPlugin, OnLoadResult } from "bun";
 import {
 	browserslistToTargets,
+	type CSSModulesConfig,
 	Features,
 	transform,
-	type CSSModulesConfig,
 } from "lightningcss-wasm";
 import * as sass from "sass";
-import fs from "node:fs";
 
 /**
  * No options for now
@@ -62,7 +62,10 @@ function restoreBackdropFilterFallback(css: string): string {
 	return css.replace(
 		/-webkit-backdrop-filter:\s*([^;]+);/g,
 		(match, value, offset, source) => {
-			const tail = source.slice(offset + match.length, offset + match.length + 80);
+			const tail = source.slice(
+				offset + match.length,
+				offset + match.length + 80,
+			);
 			if (tail.includes("backdrop-filter")) return match;
 			return `-webkit-backdrop-filter:${value};backdrop-filter:${value};`;
 		},

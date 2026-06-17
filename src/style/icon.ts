@@ -22,7 +22,10 @@ export enum VerticalDir {
 }
 
 const _icon = (d: string, prop?: Record<string, PropValueOrDerived>) =>
-	svg({ ...prop, viewBox: "0 -960 960 960", fill: "currentColor" }, path({ d }));
+	svg(
+		{ ...prop, viewBox: "0 -960 960 960", fill: "currentColor" },
+		path({ d }),
+	);
 
 /*
 first-page  M240-240v-480h80v480h-80Zm440 0L440-480l240-240 56 56-184 184 184 184-56 56Z
@@ -35,9 +38,14 @@ const leftArrowArr = [
 	-240, -240, 240, -240, 56, 56, -184, 184, 184, 184, -56, 56,
 ];
 
-export const IconChevron = (dir: HorizonDir, block = false, prop?: Record<string, PropValueOrDerived>) =>
+export const IconChevron = (
+	dir: HorizonDir,
+	block = false,
+	prop?: Record<string, PropValueOrDerived>,
+) =>
 	_icon(
-		`M${block ? `M${dir === HorizonDir.Left ? "2" : "6"}40-240v-480h80v480h-80Zm${dir === HorizonDir.Left ? "44" : "-36"}0 0` : dir === HorizonDir.Left ? "560-240" : "376-720"}l${leftArrowArr.map((i) => i * (dir === HorizonDir.Left ? 1 : -1)).join(" ")}Z`, prop
+		`M${block ? `M${dir === HorizonDir.Left ? "2" : "6"}40-240v-480h80v480h-80Zm${dir === HorizonDir.Left ? "44" : "-36"}0 0` : dir === HorizonDir.Left ? "560-240" : "376-720"}l${leftArrowArr.map((i) => i * (dir === HorizonDir.Left ? 1 : -1)).join(" ")}Z`,
+		prop,
 	);
 
 /*
@@ -96,9 +104,9 @@ const smallRect = (dir: Direction) => {
 		dir === Direction.Left ? 320 : dir < Direction.Bottom ? 760 : 200,
 		dir < Direction.Top ? -200 : dir === Direction.Top ? -640 : -320,
 		(dir < Direction.Top ? innerSmallHeight : innerWidth) *
-		(dir < Direction.Bottom ? -1 : 1),
+			(dir < Direction.Bottom ? -1 : 1),
 		(dir < Direction.Top ? innerWidth : innerSmallHeight) *
-		(dir < Direction.Bottom ? -1 : 1),
+			(dir < Direction.Bottom ? -1 : 1),
 	);
 };
 
@@ -107,38 +115,42 @@ const bigRect = (dir: Direction) => {
 		[80, -200, -innerWidth, innerWidth][dir],
 		[-innerWidth, 0, 80, -80][dir],
 		(dir < Direction.Top ? innerBigHeight : innerWidth) *
-		(dir % 2 === 0 ? 1 : -1),
+			(dir % 2 === 0 ? 1 : -1),
 		(dir < Direction.Top ? innerWidth : innerBigHeight) *
-		(dir % 2 === 0 ? 1 : -1),
+			(dir % 2 === 0 ? 1 : -1),
 	);
 };
 
 const triangle = (dir: Direction, state: PanelState) => {
 	if (!state) return "";
 	const _abs = Math.abs((dir - (+!!(dir < Direction.Top) + 1)) * state);
-	return `M${dir < Direction.Top
-		? [
-			[50, 66],
-			[46, 30],
-		][dir][state - 1]
-		: 64 / (_abs === 2 ? 1 : 2)
-		}0-${dir < Direction.Top
+	return `M${
+		dir < Direction.Top
+			? [
+					[50, 66],
+					[46, 30],
+				][dir][state - 1]
+			: 64 / (_abs === 2 ? 1 : 2)
+	}0-${
+		dir < Direction.Top
 			? 64 / (_abs === 2 ? 1 : 2)
 			: [
-				[46, 30],
-				[50, 66],
-			][dir - 2][state - 1]
-		}0${dir < Direction.Top ? "v" : "h"}${dir < Direction.Top ? (_abs === 2 ? "" : "-") : _abs === 2 ? "-" : ""
-		}320l${_abs === 2 ? "" : "-"}160${_abs === 2 ? "-" : " "}160Z`;
+					[46, 30],
+					[50, 66],
+				][dir - 2][state - 1]
+	}0${dir < Direction.Top ? "v" : "h"}${
+		dir < Direction.Top ? (_abs === 2 ? "" : "-") : _abs === 2 ? "-" : ""
+	}320l${_abs === 2 ? "" : "-"}160${_abs === 2 ? "-" : " "}160Z`;
 };
 
 export const IconPanel = (
 	dir: Direction,
 	state: PanelState = PanelState.None,
-	prop?: Record<string, PropValueOrDerived>
+	prop?: Record<string, PropValueOrDerived>,
 ) =>
 	_icon(
-		`${triangle(dir, state)}M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200ZM${smallRect(dir)}m${bigRect(dir)}`, prop
+		`${triangle(dir, state)}M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200ZM${smallRect(dir)}m${bigRect(dir)}`,
+		prop,
 	);
 
 export const IconReadMore = (prop?: Record<string, PropValueOrDerived>) =>

@@ -1,11 +1,10 @@
-import styleLoader from "./bun_plugins/style-loader";
 import { watch as fswatch } from "node:fs";
+import path from "node:path";
+import type { PackageJson } from "type-fest";
 import winston from "winston";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-
-import path from "node:path";
-import type { PackageJson } from "type-fest";
+import styleLoader from "./bun_plugins/style-loader";
 
 const consoleTransport = new winston.transports.Console();
 const logger = winston.createLogger({
@@ -162,7 +161,7 @@ function generateHeaderText(
 	}
 
 	for (const key in header) {
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/suspicious/noExplicitAny: key is a string header field at runtime
 		if (MINIMAL_USER_SCRIPT_HEADER_SET.has(key as any)) {
 			continue;
 		}
@@ -189,7 +188,6 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 	const { dev = false, releaseChannel = "OutOfBand", entrypoint } = option;
 
 	const scriptName = path.dirname(path.relative("./src", entrypoint));
-	const header: UserScriptHeader = generateHeader(releaseChannel, scriptName);
 
 	logger.info(`Building ${entrypoint}`);
 	const build = await Bun.build({
@@ -205,7 +203,10 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 				},
 			}),
 		],
-		banner: generateHeaderText(generateHeader(releaseChannel, scriptName), dev ? Date.now().toString() : undefined),
+		banner: generateHeaderText(
+			generateHeader(releaseChannel, scriptName),
+			dev ? Date.now().toString() : undefined,
+		),
 	});
 
 	logger.info(Bun.inspect(build, { colors: true }));

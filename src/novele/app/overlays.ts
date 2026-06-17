@@ -1,8 +1,8 @@
-import van from "vanjs-core";
-import nameMap from "./style.module.scss";
+import van, { type ChildDom, type State } from "vanjs-core";
 import { IconClose } from "../../style/icon";
 import type { createReaderData } from "./reader-data";
 import type { createUiState } from "./state";
+import nameMap from "./style.module.scss";
 import type {
 	InterfaceDensity,
 	LineSpacingPreset,
@@ -21,9 +21,17 @@ type UiState = ReturnType<typeof createUiState>;
 type ReaderData = ReturnType<typeof createReaderData>;
 
 const typefaceOptions = [
-	{ label: "Newsreader", value: "fontReader" as Typeface, className: nameMap.fontReader },
+	{
+		label: "Newsreader",
+		value: "fontReader" as Typeface,
+		className: nameMap.fontReader,
+	},
 	{ label: "Satoshi", value: "fontUi" as Typeface, className: nameMap.fontUi },
-	{ label: "Literata", value: "fontLiterata" as Typeface, className: nameMap.fontLiterata },
+	{
+		label: "Literata",
+		value: "fontLiterata" as Typeface,
+		className: nameMap.fontLiterata,
+	},
 ];
 
 const textSizeOptions = [
@@ -73,24 +81,30 @@ function drawerClass(
 	name: "chapters" | "comments" | "settings",
 	extraClass: string,
 ) {
-	return () => [
-		nameMap.bottomSheetPanel,
-		ui.panelPosition.val === "left" ? nameMap.panelLeft : nameMap.panelRight,
-		ui.activeOverlay.val === name ? nameMap.visible : "",
-		extraClass,
-	].filter(Boolean).join(" ");
+	return () =>
+		[
+			nameMap.bottomSheetPanel,
+			ui.panelPosition.val === "left" ? nameMap.panelLeft : nameMap.panelRight,
+			ui.activeOverlay.val === name ? nameMap.visible : "",
+			extraClass,
+		]
+			.filter(Boolean)
+			.join(" ");
 }
 
 function drawerHeader(title: string, close: () => void) {
 	return div(
 		{ class: nameMap.drawerHeader },
 		h2(title),
-		button({ onclick: close, title: `Close ${title.toLowerCase()}` }, IconClose()),
+		button(
+			{ onclick: close, title: `Close ${title.toLowerCase()}` },
+			IconClose(),
+		),
 	);
 }
 
 function segmentedButtonGroup<T extends string>(
-	currentValue: van.State<T>,
+	currentValue: State<T>,
 	options: { label: string; value: T; className?: string }[],
 ) {
 	return div(
@@ -98,10 +112,15 @@ function segmentedButtonGroup<T extends string>(
 		...options.map((option) =>
 			button(
 				{
-					class: () => [
-						currentValue.val === option.value ? nameMap.active : nameMap.inactive,
-						option.className ?? "",
-					].filter(Boolean).join(" "),
+					class: () =>
+						[
+							currentValue.val === option.value
+								? nameMap.active
+								: nameMap.inactive,
+							option.className ?? "",
+						]
+							.filter(Boolean)
+							.join(" "),
 					onclick: () => {
 						currentValue.val = option.value;
 					},
@@ -112,7 +131,7 @@ function segmentedButtonGroup<T extends string>(
 	);
 }
 
-function settingGroup(labelText: string, ...children: van.ChildDom[]) {
+function settingGroup(labelText: string, ...children: ChildDom[]) {
 	return div(
 		{ class: nameMap.settingsGroup },
 		span({ class: nameMap.label }, labelText),
@@ -123,7 +142,7 @@ function settingGroup(labelText: string, ...children: van.ChildDom[]) {
 function sliderField(
 	labelText: string,
 	valueText: () => string,
-	inputProps: Record<string, string | number | (() => string | number)>,
+	inputProps: Record<string, any>,
 ) {
 	return div(
 		{ class: nameMap.settingsGroup },
@@ -139,77 +158,103 @@ function sliderField(
 function typographyTab(ui: UiState) {
 	return div(
 		{ class: nameMap.tabContent },
-		settingGroup("Typeface", segmentedButtonGroup(ui.typeface, typefaceOptions)),
+		settingGroup(
+			"Typeface",
+			segmentedButtonGroup(ui.typeface, typefaceOptions),
+		),
 		div(
 			{ class: `${nameMap.settingsGroup} ${nameMap.inlineSetting}` },
 			span({ class: nameMap.label }, "Advanced Styling"),
 			button(
 				{
-					class: () => [
-						nameMap.toggle,
-						ui.typographyMode.val === "slider" ? nameMap.enabled : "",
-					].filter(Boolean).join(" "),
+					class: () =>
+						[
+							nameMap.toggle,
+							ui.typographyMode.val === "slider" ? nameMap.enabled : "",
+						]
+							.filter(Boolean)
+							.join(" "),
 					onclick: () => {
-						ui.typographyMode.val = ui.typographyMode.val === "slider"
-							? "preset"
-							: "slider";
+						ui.typographyMode.val =
+							ui.typographyMode.val === "slider" ? "preset" : "slider";
 					},
 				},
 				div({ class: nameMap.toggleThumb }),
 			),
 		),
-		() => ui.typographyMode.val === "slider"
-			? sliderField(
-				"Text Size",
-				() => `${ui.textSizeValue.val}px`,
-				{
-					min: 14,
-					max: 28,
-					value: () => ui.textSizeValue.val,
-					oninput: (event: Event) => {
-						ui.textSizeValue.val = parseInt((event.target as HTMLInputElement).value, 10);
-					},
-				},
-			)
-			: settingGroup("Text Size", segmentedButtonGroup(ui.textSizePreset, textSizeOptions)),
-		() => ui.typographyMode.val === "slider"
-			? sliderField(
-				"Line Spacing",
-				() => `${ui.lineSpacingValue.val.toFixed(2)}x`,
-				{
-					min: 1.1,
-					max: 2.5,
-					step: 0.05,
-					value: () => ui.lineSpacingValue.val,
-					oninput: (event: Event) => {
-						ui.lineSpacingValue.val = parseFloat((event.target as HTMLInputElement).value);
-					},
-				},
-			)
-			: settingGroup("Line Spacing", segmentedButtonGroup(ui.lineSpacingPreset, lineSpacingOptions)),
-		() => ui.typographyMode.val === "slider"
-			? sliderField(
-				"Page Width",
-				() => `${ui.readingWidthValue.val}rem`,
-				{
-					min: 30,
-					max: 60,
-					value: () => ui.readingWidthValue.val,
-					oninput: (event: Event) => {
-						ui.readingWidthValue.val = parseInt((event.target as HTMLInputElement).value, 10);
-					},
-				},
-			)
-			: settingGroup("Page Width", segmentedButtonGroup(ui.readingWidthPreset, readingWidthOptions)),
+		() =>
+			ui.typographyMode.val === "slider"
+				? sliderField("Text Size", () => `${ui.textSizeValue.val}px`, {
+						min: 14,
+						max: 28,
+						value: () => ui.textSizeValue.val,
+						oninput: (event: Event) => {
+							ui.textSizeValue.val = parseInt(
+								(event.target as HTMLInputElement).value,
+								10,
+							);
+						},
+					})
+				: settingGroup(
+						"Text Size",
+						segmentedButtonGroup(ui.textSizePreset, textSizeOptions),
+					),
+		() =>
+			ui.typographyMode.val === "slider"
+				? sliderField(
+						"Line Spacing",
+						() => `${ui.lineSpacingValue.val.toFixed(2)}x`,
+						{
+							min: 1.1,
+							max: 2.5,
+							step: 0.05,
+							value: () => ui.lineSpacingValue.val,
+							oninput: (event: Event) => {
+								ui.lineSpacingValue.val = parseFloat(
+									(event.target as HTMLInputElement).value,
+								);
+							},
+						},
+					)
+				: settingGroup(
+						"Line Spacing",
+						segmentedButtonGroup(ui.lineSpacingPreset, lineSpacingOptions),
+					),
+		() =>
+			ui.typographyMode.val === "slider"
+				? sliderField("Page Width", () => `${ui.readingWidthValue.val}rem`, {
+						min: 30,
+						max: 60,
+						value: () => ui.readingWidthValue.val,
+						oninput: (event: Event) => {
+							ui.readingWidthValue.val = parseInt(
+								(event.target as HTMLInputElement).value,
+								10,
+							);
+						},
+					})
+				: settingGroup(
+						"Page Width",
+						segmentedButtonGroup(ui.readingWidthPreset, readingWidthOptions),
+					),
 	);
 }
 
 function interfaceTab(ui: UiState) {
 	return div(
 		{ class: nameMap.tabContent },
-		settingGroup("Interface Density", segmentedButtonGroup(ui.interfaceDensity, densityOptions)),
-		settingGroup("Panel Position", segmentedButtonGroup(ui.panelPosition, panelOptions)),
-		settingGroup("Theme Mode", segmentedButtonGroup(ui.themeMode, themeModeOptions)),
+		settingGroup(
+			"Interface Density",
+			segmentedButtonGroup(ui.interfaceDensity, densityOptions),
+		),
+		settingGroup(
+			"Panel Position",
+			segmentedButtonGroup(ui.panelPosition, panelOptions),
+		),
+		settingGroup(
+			"Theme Mode",
+			segmentedButtonGroup(ui.themeMode, themeModeOptions),
+		),
 		settingGroup(
 			"Theme Color",
 			div(
@@ -217,11 +262,14 @@ function interfaceTab(ui: UiState) {
 				...themeColorOptions.map((option) =>
 					button(
 						{
-							class: () => [
-								nameMap.colorButton,
-								nameMap[`swatch${option.label}`],
-								ui.themeColor.val === option.value ? nameMap.active : "",
-							].filter(Boolean).join(" "),
+							class: () =>
+								[
+									nameMap.colorButton,
+									nameMap[`swatch${option.label}`],
+									ui.themeColor.val === option.value ? nameMap.active : "",
+								]
+									.filter(Boolean)
+									.join(" "),
 							onclick: () => {
 								ui.themeColor.val = option.value;
 							},
@@ -240,13 +288,16 @@ function settingsPanel(ui: UiState) {
 		{ class: nameMap.settingsBody },
 		div(
 			{ class: nameMap.tabSwitcher },
-			...([
-				{ label: "Typography", value: "typography" },
-				{ label: "Interface", value: "interface" },
-			] as { label: string; value: SettingsTab }[]).map((option) =>
+			...(
+				[
+					{ label: "Typography", value: "typography" },
+					{ label: "Interface", value: "interface" },
+				] as { label: string; value: SettingsTab }[]
+			).map((option) =>
 				button(
 					{
-						class: () => ui.settingsTab.val === option.value ? nameMap.active : "",
+						class: () =>
+							ui.settingsTab.val === option.value ? nameMap.active : "",
 						onclick: () => {
 							ui.settingsTab.val = option.value;
 						},
@@ -255,16 +306,19 @@ function settingsPanel(ui: UiState) {
 				),
 			),
 		),
-		() => ui.settingsTab.val === "typography" ? typographyTab(ui) : interfaceTab(ui),
+		() =>
+			ui.settingsTab.val === "typography"
+				? typographyTab(ui)
+				: interfaceTab(ui),
 	);
 }
 
 export function OverlayBackdrop(ui: UiState) {
 	return div({
-		class: () => [
-			nameMap.drawerOverlay,
-			ui.activeOverlay.val ? nameMap.visible : "",
-		].filter(Boolean).join(" "),
+		class: () =>
+			[nameMap.drawerOverlay, ui.activeOverlay.val ? nameMap.visible : ""]
+				.filter(Boolean)
+				.join(" "),
 		onclick: () => {
 			ui.activeOverlay.val = null;
 		},
@@ -282,20 +336,23 @@ export function OverlayPanels(
 	const chapterNavRoot = nav({ class: nameMap.chapterNav });
 
 	van.derive(() => {
-		const currentUrl = data.currentLink.val?.url;
-		const chapterButtons = data.links.val.map((link, index) =>
+		const currentUrl =
+			data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
+		const chapterButtons = data.chapterEntries.val.map((entry) =>
 			button(
 				{
 					class: [
 						nameMap.chapterLink,
-						link.url === currentUrl ? nameMap.active : "",
-					].filter(Boolean).join(" "),
+						entry.url === currentUrl ? nameMap.active : "",
+					]
+						.filter(Boolean)
+						.join(" "),
 					onclick: () => {
-						data.goTo(index);
+						data.goTo(entry.linkIndex);
 						close();
 					},
 				},
-				link.title ?? `Chapter ${index + 1}`,
+				entry.title,
 			),
 		);
 		chapterNavRoot.replaceChildren(...chapterButtons);

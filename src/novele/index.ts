@@ -1,9 +1,6 @@
 import van from "vanjs-core";
-import { code } from "./app/style.module.scss";
 import { FabApp } from "./app/main";
-import { resolveLinks } from "./core/extract/links";
-import { getContent, getPage, getTitle } from "./core/extract/pages";
-import { getChapter, parsePageChapter } from "./core/extract/chapters";
+import { code } from "./app/style.module.scss";
 
 const { div, style } = van.tags;
 
@@ -21,15 +18,3 @@ const attachShadow = (
 
 const root = attachShadow(document.body, code);
 root.appendChild(FabApp());
-
-/* Test core functions temporary without UI */
-resolveLinks(document).then(console.log).catch(console.error);
-Promise.all([getPage(window.location.href), parsePageChapter(window.location.href)]).then((arr) => {
-	arr.forEach((item, i) => {console.log(`Test ${i + 1}:`, item);});
-}).catch(console.error);
-parsePageChapter(window.location.href).then((map) => {
-	map.keys().forEach((index) => {
-		const chapter = getChapter(index);
-		console.log(`Chapter ${index}:`, chapter);
-	});
-})

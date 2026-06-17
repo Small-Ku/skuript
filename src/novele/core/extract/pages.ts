@@ -1,9 +1,11 @@
 import { hostname } from "./hostname-map";
 import {
+	type CommentPageRef,
 	deletePage as deleteStoredPage,
 	getPage as getStoredPage,
-	setPage as setStoredPage,
+	type PageSlice,
 	type StoredPage,
+	setPage as setStoredPage,
 } from "./storage";
 
 export type Page = StoredPage;
@@ -22,6 +24,17 @@ const titleSelector = {
 	"www.zhenhunxiaoshuo.com": ".article-header > .article-title",
 	"www.52shuku.vip": "#nr_title",
 }[hostname];
+const contentCleanupSelectors = {
+	"www.52shuku.vip": [
+		"script",
+		"style",
+		".pagination2",
+		".go_top",
+		"#go-top",
+		"ul.list",
+		"p.con_pc",
+	],
+}[hostname];
 
 function ensurePage(url: string): Page {
 	if (url === window.location.href && !getStoredPage(url)) {
@@ -33,15 +46,23 @@ function ensurePage(url: string): Page {
 }
 
 function nextPaginatedUrl(url: string, pageIndex: number): string {
-	return url.replace(/(_1)?\.html(?:([?#].*)?)$/, `_${pageIndex}.html$2`);
+	return url.replace(/(_\d+)?\.html(?:([?#].*)?)$/, `_${pageIndex}.html$2`);
 }
 
 export function getAdditionalPageUrls(url: string, html: string): string[] {
+	if (
+		hostname === "www.52shuku.vip" &&
+		html.includes('class="list clearfix"')
+	) {
+		return [];
+	}
 	const urls: string[] = [];
 	for (let i = 2; ; i++) {
 		const pageUrl = new URL(nextPaginatedUrl(url, i), url);
 		const nextPath = pageUrl.pathname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-		const hasNextPage = new RegExp(`href=["'][^"']*${nextPath}[^"']*["']`).test(html);
+		const hasNextPage = new RegExp(`href=["'][^"']*${nextPath}[^"']*["']`).test(
+			html,
+		);
 		if (!hasNextPage) break;
 		urls.push(pageUrl.href);
 	}
@@ -58,6 +79,27 @@ function persistPage(page: Page): Page {
 	return setStoredPage(page);
 }
 
+async function yieldToBrowser() {
+	await new Promise<void>((resolve) => {
+		requestAnimationFrame(() => resolve());
+	});
+}
+
+function cleanupContentRoot(root: Element) {
+	for (const selector of contentCleanupSelectors ?? []) {
+		if (selector === ".pagination2") continue;
+		root.querySelectorAll(selector).forEach((item) => item.remove());
+	}
+	for (const pagination of Array.from(root.querySelectorAll(".pagination2"))) {
+		let node: ChildNode | null = pagination;
+		while (node) {
+			const next: ChildNode | null = node.nextSibling;
+			node.remove();
+			node = next;
+		}
+	}
+}
+
 export function peekPage(url: string): Page | undefined {
 	return getStoredPage(url);
 }
@@ -69,7 +111,8 @@ export function registerPageRaw(url: string, raw: string, title?: string) {
 		raw,
 		dom: page?.dom,
 		title: mergeTitle(page?.title ?? new Set<string>(), title),
-		content: page?.content,
+		slices: page?.slices,
+		resolvedChapter: page?.resolvedChapter,
 		additionalUrls: page?.additionalUrls,
 		lastModified: new Date(),
 	});
@@ -82,7 +125,8 @@ export function registerCurrentPage(url: string, title?: string) {
 		raw: document.documentElement.outerHTML,
 		dom: document,
 		title: mergeTitle(page?.title ?? new Set<string>(), title),
-		content: page?.content,
+		slices: page?.slices,
+		resolvedChapter: page?.resolvedChapter,
 		additionalUrls: page?.additionalUrls,
 		lastModified: new Date(),
 	});
@@ -98,7 +142,7 @@ export function setAdditionalPageUrls(url: string, additionalUrls: string[]) {
 
 export async function parsePageDom(url: string) {
 	const page = ensurePage(url);
-	if (page.dom || page.content) return page;
+	if (page.dom) return page;
 	if (!page.raw) throw new Error("Page not parsed and no raw content");
 
 	const parser = new DOMParser();
@@ -110,17 +154,25 @@ export async function parsePageDom(url: string) {
 
 export async function getContent(doc: Document): Promise<string[]> {
 	if (!paraSelector) return [];
-	return Array.from(doc.querySelectorAll(paraSelector)).flatMap((root) => {
-		if (!root.childElementCount) return [];
+	const mergedContent: string[] = [];
+	for (const root of Array.from(doc.querySelectorAll(paraSelector))) {
+		const contentRoot = root.cloneNode(true) as Element;
+		cleanupContentRoot(contentRoot);
+		if (!contentRoot.childElementCount) continue;
 		const content: string[] = [];
 		const tw = document.createTreeWalker(
-			root,
+			contentRoot,
 			NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
 		);
 		let elm: Node | null;
 		let newline = true;
+		let nodeCount = 0;
 		// biome-ignore lint/suspicious/noAssignInExpressions: working on my Firefox
 		while ((elm = tw.nextNode())) {
+			nodeCount += 1;
+			if (nodeCount % 250 === 0) {
+				await yieldToBrowser();
+			}
 			if (elm.nodeType === Node.TEXT_NODE) {
 				const text = (elm as Text).wholeText
 					.split("\n")
@@ -136,8 +188,9 @@ export async function getContent(doc: Document): Promise<string[]> {
 				if (["P", "BR"].includes((elm as Element).tagName)) newline = true;
 			}
 		}
-		return content;
-	});
+		mergedContent.push(...content);
+	}
+	return mergedContent;
 }
 
 export async function getTitle(doc: Document) {
@@ -150,35 +203,128 @@ export async function getTitle(doc: Document) {
 	);
 }
 
-export async function parseStandalonePage(url: string): Promise<Page> {
+function getCommentPageUrls(doc: Document, url: string): CommentPageRef[] {
+	switch (hostname) {
+		case "www.zhenhunxiaoshuo.com": {
+			const firstPage = new URL(url);
+			firstPage.pathname = firstPage.pathname.replace(
+				/\/comment-page-\d+\/?$/,
+				"",
+			);
+			const links = Array.from(
+				doc.querySelectorAll<HTMLAnchorElement>(
+					'a.page-numbers[href*="comment-page-"]',
+				),
+			);
+			const maxPage = Math.max(
+				1,
+				...links.flatMap((link) => {
+					const pageNumber = Number(
+						link.href.match(/comment-page-(\d+)/)?.[1] ?? "",
+					);
+					return Number.isFinite(pageNumber) ? [pageNumber] : [];
+				}),
+			);
+			return Array.from({ length: maxPage }, (_, index) => {
+				const pageNumber = index + 1;
+				return {
+					url:
+						pageNumber === 1
+							? `${firstPage.href.replace(/\/$/, "")}/comment-page-1/`
+							: `${firstPage.href.replace(/\/$/, "")}/comment-page-${pageNumber}/`,
+					scope: "chapter",
+					pageNumber,
+				};
+			});
+		}
+		default:
+			return [];
+	}
+}
+
+function mergeSliceTitle(page: Page, slice: PageSlice) {
+	const titles = new Set(page.title);
+	slice.title.forEach((title) => titles.add(title));
+	page.title = titles;
+}
+
+function createPageSlice(
+	page: Page,
+	url: string,
+	parentUrl: string,
+	subPageIndex: number,
+	title: Set<string>,
+	content: string[],
+	commentPages: CommentPageRef[],
+): PageSlice {
+	return {
+		url,
+		parentUrl,
+		subPageIndex,
+		title: [...title],
+		content,
+		chapterCandidates: page.slices?.find((slice) => slice.url === url)
+			?.chapterCandidates,
+		commentPages,
+	};
+}
+
+export async function parseStandalonePage(
+	url: string,
+	parentUrl = url,
+	subPageIndex = 0,
+): Promise<Page> {
+	const cachedPage = ensurePage(url);
+	if (cachedPage.slices?.length) return cachedPage;
 	const page = await parsePageDom(url);
-	if (page.content) return page;
 	if (!page.dom) throw new Error(`Page DOM not available: ${url}`);
 
-	const [content, title] = await Promise.all([getContent(page.dom), getTitle(page.dom)]);
-	page.content = content;
-	page.title = new Set([...page.title, ...title]);
+	const [content, title] = await Promise.all([
+		getContent(page.dom),
+		getTitle(page.dom),
+	]);
+	const commentPages = getCommentPageUrls(page.dom, url);
+	const slice = createPageSlice(
+		page,
+		url,
+		parentUrl,
+		subPageIndex,
+		title,
+		content,
+		commentPages,
+	);
+	page.slices = [slice];
+	page.resolvedChapter = undefined;
+	mergeSliceTitle(page, slice);
 	delete page.dom;
 	persistPage(page);
 	return page;
 }
 
 export async function parsePage(url: string) {
-	const page = await parseStandalonePage(url);
+	const page = await parseStandalonePage(url, url, 0);
 	const additionalUrls = page.additionalUrls ?? [];
 	if (!additionalUrls.length) return page;
 
-	const mergedContent = [...(page.content ?? [])];
+	const slices = [...(page.slices ?? [])];
 	const mergedTitle = new Set(page.title);
 	for (const pageUrl of additionalUrls) {
-		const additionalPage = await parseStandalonePage(pageUrl);
-		mergedContent.push(...(additionalPage.content ?? []));
-		additionalPage.title.forEach((title) => mergedTitle.add(title));
+		await yieldToBrowser();
+		const additionalPage = await parseStandalonePage(
+			pageUrl,
+			url,
+			slices.length,
+		);
+		(additionalPage.slices ?? []).forEach((slice) => {
+			slices.push(slice);
+			slice.title.forEach((title) => mergedTitle.add(title));
+		});
 		deleteStoredPage(pageUrl);
 	}
 
-	page.content = mergedContent;
+	page.slices = slices.sort((a, b) => a.subPageIndex - b.subPageIndex);
 	page.title = mergedTitle;
+	page.resolvedChapter = undefined;
 	page.additionalUrls = [];
 	delete page.dom;
 	persistPage(page);
@@ -187,8 +333,8 @@ export async function parsePage(url: string) {
 
 export async function getPage(url: string): Promise<Page> {
 	const page = await parsePage(url);
-	if (!page.content || !page.title) {
-		throw new Error("Page content or title not available");
+	if (!page.slices?.length || !page.title) {
+		throw new Error("Page slices or title not available");
 	}
 	return page;
 }

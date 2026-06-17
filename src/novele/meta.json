@@ -2,7 +2,7 @@
 	"name": "novelé",
 	"version": "0.0.1",
 	"description": "New novel reader userscript with Material-like smooth UI",
-    "namespace": "https://github.com/Small-Ku/skuript",
+	"namespace": "https://github.com/Small-Ku/skuript",
 	"match": [
 		"https://www.52shuku.vip/*",
 		"https://www.52shuku.net/*",

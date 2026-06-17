@@ -1,8 +1,8 @@
 import van from "vanjs-core";
-import nameMap from "./style.module.scss";
-import { Reader } from "./reader";
 import { IconExitToApp, IconReadMore } from "../../style/icon";
+import { Reader } from "./reader";
 import { createUiState } from "./state";
+import nameMap from "./style.module.scss";
 
 const { button, div, span } = van.tags;
 
@@ -11,23 +11,28 @@ export const FabApp = () => {
 	const ui = createUiState();
 	const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 	const app = div({
-		class: () => [
-			nameMap.app,
-			open.val ? nameMap.appExpanded : "",
-			ui.effectiveTheme.val === "dark" ? nameMap.themeDark : nameMap.themeLight,
-			ui.themeColor.val === "cyan"
-				? nameMap.colorCyan
-				: ui.themeColor.val === "emerald"
-					? nameMap.colorEmerald
-					: ui.themeColor.val === "amber"
-						? nameMap.colorAmber
-						: nameMap.colorRose,
-			ui.interfaceDensity.val === "compact"
-				? nameMap.uiDensityCompact
-				: ui.interfaceDensity.val === "spacious"
-					? nameMap.uiDensitySpacious
-					: nameMap.uiDensityComfortable,
-		].filter(Boolean).join(" "),
+		class: () =>
+			[
+				nameMap.app,
+				open.val ? nameMap.appExpanded : "",
+				ui.effectiveTheme.val === "dark"
+					? nameMap.themeDark
+					: nameMap.themeLight,
+				ui.themeColor.val === "cyan"
+					? nameMap.colorCyan
+					: ui.themeColor.val === "emerald"
+						? nameMap.colorEmerald
+						: ui.themeColor.val === "amber"
+							? nameMap.colorAmber
+							: nameMap.colorRose,
+				ui.interfaceDensity.val === "compact"
+					? nameMap.uiDensityCompact
+					: ui.interfaceDensity.val === "spacious"
+						? nameMap.uiDensitySpacious
+						: nameMap.uiDensityComfortable,
+			]
+				.filter(Boolean)
+				.join(" "),
 	});
 	const reader = Reader(open, ui);
 	let bodyOverflow = `${document.body.style.overflow}`;
@@ -48,27 +53,25 @@ export const FabApp = () => {
 
 	const fab = button(
 		{
-			class: () => [
-				nameMap.persistentFab,
-				nameMap.glass,
-				open.val ? nameMap.fabOpen : "",
-			].filter(Boolean).join(" "),
+			class: () =>
+				[nameMap.persistentFab, nameMap.glass, open.val ? nameMap.fabOpen : ""]
+					.filter(Boolean)
+					.join(" "),
 			onclick: (event) => {
 				event.stopPropagation();
 				open.val = !open.val;
 			},
-			title: () => open.val ? "Close reader" : "Open reader",
+			title: () => (open.val ? "Close reader" : "Open reader"),
 		},
-		div(
-			{ class: nameMap.fabIcon },
-			() => open.val ? IconExitToApp() : IconReadMore(),
+		div({ class: nameMap.fabIcon }, () =>
+			open.val ? IconExitToApp() : IconReadMore(),
 		),
 		span(
 			{
-				class: () => [
-					nameMap.fabLabel,
-					open.val ? nameMap.fabLabelHidden : "",
-				].filter(Boolean).join(" "),
+				class: () =>
+					[nameMap.fabLabel, open.val ? nameMap.fabLabelHidden : ""]
+						.filter(Boolean)
+						.join(" "),
 			},
 			"Novelé",
 		),

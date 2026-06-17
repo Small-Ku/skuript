@@ -1,24 +1,12 @@
-import van, {
-	type ChildDom,
-	type PropValueOrDerived,
-	type State,
-} from "vanjs-core";
-import nameMap from "./style.module.scss";
-import {
-	Direction,
-	HorizonDir,
-	IconChevron,
-	IconPanel,
-	IconExitToApp,
-	PanelState,
-} from "../../style/icon";
-import { Fab } from "./component/fab";
+import van, { type State } from "vanjs-core";
+import { HorizonDir, IconChevron, IconExitToApp } from "../../style/icon";
 import { nav } from "../core/nav";
-import { appState } from "./main";
+import { Fab } from "./component/fab";
+import nameMap from "./style.module.scss";
 
-const { div, input, button, span } = van.tags;
+const { div, input } = van.tags;
 
-export const BottomBar = () => {
+export const BottomBar = (open?: State<boolean>) => {
 	const _navControls = div(
 		{ class: () => nameMap.nav },
 		div(
@@ -56,7 +44,9 @@ export const BottomBar = () => {
 				icon: () => IconExitToApp(),
 			},
 			{
-				onclick: e => { appState.val = false; },
+				onclick: () => {
+					if (open) open.val = false;
+				},
 			},
 		),
 	);

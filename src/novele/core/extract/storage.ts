@@ -1,30 +1,78 @@
+export type ChapterCandidate = {
+	index: number;
+	line: number;
+	title?: string;
+	standalone: boolean;
+	source: "content" | "title";
+};
+
+export type CommentScope = "chapter" | "page";
+
+export type CommentPageRef = {
+	url: string;
+	scope: CommentScope;
+	pageNumber: number;
+};
+
+export type PageSlice = {
+	url: string;
+	parentUrl: string;
+	subPageIndex: number;
+	title: string[];
+	content: string[];
+	chapterCandidates?: ChapterCandidate[];
+	commentPages?: CommentPageRef[];
+};
+
+export type ChapterBoundaryMode = "marker-bounded" | "link-bounded";
+
+export type ResolvedChapter = {
+	title?: string;
+	content: string[];
+	chapterIndex?: number;
+	startUrl?: string;
+	startLinkIndex?: number;
+	boundaryMode: ChapterBoundaryMode;
+	complete: boolean;
+	commentPages: CommentPageRef[];
+};
+
 export type StoredPage = {
 	url: string;
 	lastModified: Date;
 	title: Set<string>;
-	content?: string[];
+	slices?: PageSlice[];
+	resolvedChapter?: ResolvedChapter;
 	additionalUrls?: string[];
 	raw?: string;
 	dom?: Document;
 };
 
 type SessionPage = {
+	version: number;
 	lastModified: string;
 	title: string[];
-	content?: string[];
 	additionalUrls?: string[];
 	raw?: string;
 };
 
 const pages = new Map<string, StoredPage>();
+const STORAGE_VERSION = 4;
+
+function clearStoredPageCache() {
+	for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+		const key = sessionStorage.key(index);
+		if (key?.startsWith("http")) sessionStorage.removeItem(key);
+	}
+}
 
 function toSessionPage(page: StoredPage): SessionPage {
 	return {
+		version: STORAGE_VERSION,
 		lastModified: page.lastModified.toISOString(),
 		title: [...page.title],
-		content: page.content,
 		additionalUrls: page.additionalUrls,
-		raw: page.raw,
+		raw: page.slices?.length ? undefined : page.raw,
 	};
 }
 
@@ -33,7 +81,6 @@ function fromSessionPage(url: string, page: SessionPage): StoredPage {
 		url,
 		lastModified: new Date(page.lastModified),
 		title: new Set(page.title),
-		content: page.content,
 		additionalUrls: page.additionalUrls,
 		raw: page.raw,
 	};
@@ -42,7 +89,12 @@ function fromSessionPage(url: string, page: SessionPage): StoredPage {
 function loadPage(url: string): StoredPage | undefined {
 	const stored = sessionStorage.getItem(url);
 	if (!stored) return;
-	const page = fromSessionPage(url, JSON.parse(stored) as SessionPage);
+	const sessionPage = JSON.parse(stored) as Partial<SessionPage>;
+	if (sessionPage.version !== STORAGE_VERSION) {
+		sessionStorage.removeItem(url);
+		return;
+	}
+	const page = fromSessionPage(url, sessionPage as SessionPage);
 	pages.set(url, page);
 	return page;
 }
@@ -57,7 +109,15 @@ export function hasPage(url: string): boolean {
 
 export function setPage(page: StoredPage): StoredPage {
 	pages.set(page.url, page);
-	sessionStorage.setItem(page.url, JSON.stringify(toSessionPage(page)));
+	try {
+		sessionStorage.setItem(page.url, JSON.stringify(toSessionPage(page)));
+	} catch (error) {
+		if (error instanceof DOMException && error.name === "QuotaExceededError") {
+			clearStoredPageCache();
+		} else {
+			throw error;
+		}
+	}
 	return page;
 }
 

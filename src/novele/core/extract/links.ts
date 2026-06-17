@@ -1,6 +1,6 @@
 import { LinkedMap } from "../../../util/linked-map";
-import { hostname } from "./hostname-map";
 import { fetchDocument } from "../queue";
+import { hostname } from "./hostname-map";
 
 export type Link = {
 	url: string;
@@ -23,9 +23,16 @@ const indexLinkSelectors = {
 	"www.52shuku.vip": [".pagination2 a"],
 	"www.dameishuwang.net": [".readend a", ".page a"],
 	"www.xbanxia.com": ["#bcrumb a[rel='category tag']"],
-	"www.sunzhinan.com": ["#info_url", ".text_info a[href*='/books/']", ".read_nav a"],
+	"www.sunzhinan.com": [
+		"#info_url",
+		".text_info a[href*='/books/']",
+		".read_nav a",
+	],
 	"www.256wx.org": [".page a"],
-	"www.zhenhunxiaoshuo.com": [".article-meta a[rel='category tag']", ".article-nav a[rel='category tag']"],
+	"www.zhenhunxiaoshuo.com": [
+		".article-meta a[rel='category tag']",
+		".article-nav a[rel='category tag']",
+	],
 }[hostname];
 
 const chapterNavSelectors = {
@@ -34,7 +41,10 @@ const chapterNavSelectors = {
 	"www.xbanxia.com": [".nav2 a", "#prev_url", "#next_url"],
 	"www.sunzhinan.com": [".read_nav a", "#prev_url", "#next_url"],
 	"www.256wx.org": [".page a"],
-	"www.zhenhunxiaoshuo.com": [".article-nav a[rel='prev']", ".article-nav a[rel='next']"],
+	"www.zhenhunxiaoshuo.com": [
+		".article-nav a[rel='prev']",
+		".article-nav a[rel='next']",
+	],
 }[hostname];
 
 const linkTransform = (() => {
@@ -49,8 +59,10 @@ const listeners = new Set<LinkListener>();
 let discoveryPromise: Promise<Link[]> | null = null;
 
 function toLink(link: Element): Link {
-	// biome-ignore lint/style/noNonNullAssertion: filtered by callers
-	let href = link instanceof HTMLAnchorElement ? link.href : link.getAttribute("href")!;
+	const hrefAttr =
+		link instanceof HTMLAnchorElement ? link.href : link.getAttribute("href");
+	if (!hrefAttr) throw new Error("link href missing");
+	let href = hrefAttr;
 	if (linkTransform) href = linkTransform(href);
 	return {
 		url: href,
@@ -67,12 +79,17 @@ function dedupeLinks(_links: Link[]): Link[] {
 	});
 }
 
-function parseBySelectors(doc: Document, selectors: string[] | undefined): Link[] {
+function parseBySelectors(
+	doc: Document,
+	selectors: string[] | undefined,
+): Link[] {
 	if (!selectors?.length) return [];
-	return dedupeLinks(selectors
-		.flatMap((selector) => Array.from(doc.querySelectorAll(selector)))
-		.filter((link) => link.getAttribute("href"))
-		.map(toLink));
+	return dedupeLinks(
+		selectors
+			.flatMap((selector) => Array.from(doc.querySelectorAll(selector)))
+			.filter((link) => link.getAttribute("href"))
+			.map(toLink),
+	);
 }
 
 function getDocumentUrl(doc: Document): string | undefined {
@@ -82,7 +99,9 @@ function getDocumentUrl(doc: Document): string | undefined {
 
 function emitLinks() {
 	const orderedLinks = linkStore.toArray();
-	listeners.forEach((listener) => listener(orderedLinks));
+	listeners.forEach((listener) => {
+		listener(orderedLinks);
+	});
 }
 
 function upsertBoundaryLink(link: Link) {
@@ -96,13 +115,19 @@ function upsertBoundaryLink(link: Link) {
 	emitLinks();
 }
 
-function insertDiscoveredLink(link: Link, referenceUrl: string, direction: Direction) {
+function insertDiscoveredLink(
+	link: Link,
+	referenceUrl: string,
+	direction: Direction,
+) {
 	if (linkStore.getById(link.url)) return;
 	if (!linkStore.getById(referenceUrl)) {
 		upsertBoundaryLink({ url: referenceUrl });
 	}
-	if (!linkStore.getById(referenceUrl)) throw new Error(`reference link missing: ${referenceUrl}`);
-	if (direction === "prev") linkStore.insertBefore(link.url, link, referenceUrl);
+	if (!linkStore.getById(referenceUrl))
+		throw new Error(`reference link missing: ${referenceUrl}`);
+	if (direction === "prev")
+		linkStore.insertBefore(link.url, link, referenceUrl);
 	else linkStore.insertAfter(link.url, link, referenceUrl);
 	emitLinks();
 }
@@ -118,16 +143,32 @@ function replaceAllLinks(_links: Link[]) {
 	return getLinks();
 }
 
+function isPageNumberCatalog(links: Link[]): boolean {
+	return (
+		links.length > 0 &&
+		links.every((link) => {
+			const text = link.title?.replace(/\s+/g, "") ?? "";
+			return /^第\d+页$/.test(text);
+		})
+	);
+}
+
 function isIndexLink(link: Link): boolean {
 	const text = link.title?.replace(/\s+/g, "") ?? "";
 	if (text.match(/目录|目錄|章节列表|章節列表|书页|書頁/)) return true;
 	switch (hostname) {
 		case "www.xbanxia.com":
-			return link.url.includes("/books/") && !link.url.match(/\/books\/\d+\/\d+\.html(?:[?#].*)?$/);
+			return (
+				link.url.includes("/books/") &&
+				!link.url.match(/\/books\/\d+\/\d+\.html(?:[?#].*)?$/)
+			);
 		case "www.sunzhinan.com":
 			return link.url.includes("/books/");
 		case "www.zhenhunxiaoshuo.com":
-			return link.url.includes("zhenhunxiaoshuo.com/") && !link.url.match(/\/\d+\.html(?:[?#].*)?(?:\/comment-page-1\/)?$/);
+			return (
+				link.url.includes("zhenhunxiaoshuo.com/") &&
+				!link.url.match(/\/\d+\.html(?:[?#].*)?(?:\/comment-page-1\/)?$/)
+			);
 		default:
 			return false;
 	}
@@ -149,7 +190,10 @@ function getChapterNavMap(doc: Document): Map<Direction, Link> {
 	return navMap;
 }
 
-async function crawlChapterDirection(startUrl: string, direction: Direction): Promise<void> {
+async function crawlChapterDirection(
+	startUrl: string,
+	direction: Direction,
+): Promise<void> {
 	const seen = new Set<string>([startUrl]);
 	let currentUrl = startUrl;
 	for (;;) {
@@ -188,18 +232,30 @@ export async function resolveLinks(doc: Document): Promise<Link[]> {
 	if (discoveryPromise) return discoveryPromise;
 	discoveryPromise = (async () => {
 		const catalogLinks = parseBySelectors(doc, catalogLinkSelectors);
-		if (catalogLinks.length) return replaceAllLinks(catalogLinks);
+		if (catalogLinks.length) {
+			const currentUrl = getDocumentUrl(doc);
+			if (currentUrl && isPageNumberCatalog(catalogLinks)) {
+				return replaceAllLinks([
+					{ url: currentUrl, title: "前置內容" },
+					...catalogLinks,
+				]);
+			}
+			return replaceAllLinks(catalogLinks);
+		}
 
 		const currentUrl = getDocumentUrl(doc);
 		if (!currentUrl) throw new Error("current page URL not available");
 		upsertBoundaryLink({ url: currentUrl });
 
-		const indexLinks = parseBySelectors(doc, indexLinkSelectors).filter(isIndexLink);
+		const indexLinks = parseBySelectors(doc, indexLinkSelectors).filter(
+			isIndexLink,
+		);
 		const indexLink = indexLinks[0];
 		if (indexLink) {
 			const pageDoc = await fetchDocument(indexLink.url);
 			const resolvedLinks = parseBySelectors(pageDoc, catalogLinkSelectors);
-			if (!resolvedLinks.length) throw new Error("catalog links not found on index page");
+			if (!resolvedLinks.length)
+				throw new Error("catalog links not found on index page");
 			return replaceAllLinks(resolvedLinks);
 		}
 

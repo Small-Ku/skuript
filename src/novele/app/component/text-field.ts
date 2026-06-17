@@ -1,7 +1,7 @@
 import van, { type ChildDom, type PropValueOrDerived } from "vanjs-core";
 import nameMap from "../style.module.scss";
 
-const { div, label, input, span } = van.tags;
+const { label, input, span } = van.tags;
 
 type TextFieldLabel = {
 	// TODO: icon / prefix / suffix
@@ -15,6 +15,7 @@ export const TextField = (
 ) => {
 	return label(
 		{ ...prop, class: [nameMap.text_field, prop?.class ?? ""].join(" ") },
-		_label.input ?? input({ placeholder: " " }), span(_label.label),
+		_label.input ?? input({ placeholder: " " }),
+		span(_label.label),
 	);
 };

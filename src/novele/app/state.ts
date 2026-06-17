@@ -36,7 +36,9 @@ export function createUiState() {
 
 	const effectiveTheme = van.derive<Exclude<ThemeMode, "auto">>(() =>
 		themeMode.val === "auto"
-			? systemPrefersDark.val ? "dark" : "light"
+			? systemPrefersDark.val
+				? "dark"
+				: "light"
 			: themeMode.val,
 	);
 

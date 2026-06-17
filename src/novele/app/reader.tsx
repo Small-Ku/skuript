@@ -1,11 +1,11 @@
-import van from "vanjs-core";
-import nameMap from "./style.module.scss";
-import { TopBar, BottomControls } from "./controls";
+import van, { type State } from "vanjs-core";
+import { nav } from "../core/nav";
+import { updateCurrentPage } from "../core/queue";
+import { BottomControls, TopBar } from "./controls";
 import { OverlayBackdrop, OverlayPanels } from "./overlays";
 import { createReaderData } from "./reader-data";
 import type { UiState } from "./state";
-import { nav } from "../core/nav";
-import { updateCurrentPage } from "../core/queue";
+import nameMap from "./style.module.scss";
 
 const { div, h1, main, p } = van.tags;
 
@@ -29,22 +29,26 @@ const readingWidthPresetMap = {
 
 function readerStyle(ui: UiState) {
 	return () => {
-		const fontSize = ui.typographyMode.val === "slider"
-			? ui.textSizeValue.val
-			: textSizePresetMap[ui.textSizePreset.val];
-		const lineHeight = ui.typographyMode.val === "slider"
-			? ui.lineSpacingValue.val
-			: lineSpacingPresetMap[ui.lineSpacingPreset.val];
-		const readingWidth = ui.typographyMode.val === "slider"
-			? ui.readingWidthValue.val
-			: readingWidthPresetMap[ui.readingWidthPreset.val];
-		const paddingY = ui.typographyMode.val === "slider"
-			? Math.max(1, (60 - ui.readingWidthValue.val) / 3)
-			: ui.readingWidthPreset.val === "narrow"
-				? 8
-				: ui.readingWidthPreset.val === "wide"
-					? 4
-					: 6;
+		const fontSize =
+			ui.typographyMode.val === "slider"
+				? ui.textSizeValue.val
+				: textSizePresetMap[ui.textSizePreset.val];
+		const lineHeight =
+			ui.typographyMode.val === "slider"
+				? ui.lineSpacingValue.val
+				: lineSpacingPresetMap[ui.lineSpacingPreset.val];
+		const readingWidth =
+			ui.typographyMode.val === "slider"
+				? ui.readingWidthValue.val
+				: readingWidthPresetMap[ui.readingWidthPreset.val];
+		const paddingY =
+			ui.typographyMode.val === "slider"
+				? Math.max(1, (60 - ui.readingWidthValue.val) / 3)
+				: ui.readingWidthPreset.val === "narrow"
+					? 8
+					: ui.readingWidthPreset.val === "wide"
+						? 4
+						: 6;
 		return [
 			`font-size:${fontSize}px`,
 			`line-height:${lineHeight}`,
@@ -65,7 +69,7 @@ function currentTypefaceClass(ui: UiState) {
 	}
 }
 
-export function Reader(open: van.State<boolean>, ui: UiState) {
+export function Reader(open: State<boolean>, ui: UiState) {
 	const data = createReaderData();
 
 	van.derive(() => {
@@ -139,12 +143,17 @@ export function Reader(open: van.State<boolean>, ui: UiState) {
 
 	const readerSurface = main(
 		{
-			class: () => [
-				nameMap.readerMain,
-				ui.activeOverlay.val ? nameMap.drawerOpen : "",
-				ui.panelPosition.val === "left" ? nameMap.panelLeft : nameMap.panelRight,
-				currentTypefaceClass(ui),
-			].filter(Boolean).join(" "),
+			class: () =>
+				[
+					nameMap.readerMain,
+					ui.activeOverlay.val ? nameMap.drawerOpen : "",
+					ui.panelPosition.val === "left"
+						? nameMap.panelLeft
+						: nameMap.panelRight,
+					currentTypefaceClass(ui),
+				]
+					.filter(Boolean)
+					.join(" "),
 			style: readerStyle(ui),
 			onscroll: onInteraction,
 		},

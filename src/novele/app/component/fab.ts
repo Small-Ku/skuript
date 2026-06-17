@@ -24,11 +24,15 @@ export const ExpandableFab = (
 	const expand = van.state(false);
 	const _container = div({
 		class: nameMap.container,
-		onclick: (e) => { e.stopPropagation() },
+		onclick: (e) => {
+			e.stopPropagation();
+		},
 	});
 	const fab = Fab(label, {
 		...prop,
-		onclick: () => { expand.val = !expand.val },
+		onclick: () => {
+			expand.val = !expand.val;
+		},
 	});
 	let _body_overflow: string | undefined;
 	van.derive(() => {
@@ -39,9 +43,7 @@ export const ExpandableFab = (
 			fab.classList.remove(nameMap.expanded);
 			return;
 		}
-		if (
-			fab.querySelector(`.${nameMap.container}`)?.childNodes.length === 0
-		) {
+		if (fab.querySelector(`.${nameMap.container}`)?.childNodes.length === 0) {
 			van.add(_container, child);
 		}
 		fab.classList.add(nameMap.expanded);
@@ -49,5 +51,5 @@ export const ExpandableFab = (
 		document.body.style.overflow = "hidden";
 	});
 	van.add(fab, _container);
-	return {expand, fab};
+	return { expand, fab };
 };
