@@ -2,6 +2,7 @@ import van from "vanjs-core";
 import { IconExitToApp, IconReadMore } from "../../style/icon";
 import { Reader } from "./reader";
 import { createUiState } from "./state";
+import { generateThemeVars } from "./theme";
 import nameMap from "./style.module.scss";
 
 const { button, div, span } = van.tags;
@@ -18,21 +19,30 @@ export const FabApp = () => {
 				ui.effectiveTheme.val === "dark"
 					? nameMap.themeDark
 					: nameMap.themeLight,
-				ui.themeColor.val === "cyan"
-					? nameMap.colorCyan
-					: ui.themeColor.val === "emerald"
-						? nameMap.colorEmerald
-						: ui.themeColor.val === "amber"
-							? nameMap.colorAmber
-							: nameMap.colorRose,
 				ui.interfaceDensity.val === "compact"
 					? nameMap.uiDensityCompact
 					: ui.interfaceDensity.val === "spacious"
 						? nameMap.uiDensitySpacious
 						: nameMap.uiDensityComfortable,
+				ui.panelPosition.val === "left" ? nameMap.uiDirectionLeft : "",
 			]
 				.filter(Boolean)
 				.join(" "),
+		style: () => {
+			const isDark = ui.effectiveTheme.val === "dark";
+			const vars = generateThemeVars(
+				isDark ? ui.darkPrimarySeed.val : ui.lightPrimarySeed.val,
+				isDark ? ui.darkSurfaceSeed.val : ui.lightSurfaceSeed.val,
+				isDark,
+			);
+			const fontSize = ui.advancedInterfaceDensity.val
+				? `${ui.interfaceScale.val * 16}px`
+				: "16px";
+			return [
+				...Object.entries(vars).map(([key, value]) => `${key}:${value}`),
+				`font-size:${fontSize}`,
+			].join(";");
+		},
 	});
 	const reader = Reader(open, ui);
 	let bodyOverflow = `${document.body.style.overflow}`;
@@ -54,7 +64,12 @@ export const FabApp = () => {
 	const fab = button(
 		{
 			class: () =>
-				[nameMap.persistentFab, nameMap.glass, open.val ? nameMap.fabOpen : ""]
+				[
+					nameMap.persistentFab,
+					nameMap.glass,
+					open.val ? nameMap.fabOpen : "",
+					ui.activeOverlay.val ? nameMap.overlayOpen : "",
+				]
 					.filter(Boolean)
 					.join(" "),
 			onclick: (event) => {

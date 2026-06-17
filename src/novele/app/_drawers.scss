@@ -26,10 +26,10 @@
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		max-width: 42rem;
+		max-width: 42em;
 		max-height: 85vh;
 		margin: 0 auto;
-		border-radius: 1.5rem 1.5rem 0 0;
+		border-radius: 1.5em 1.5em 0 0;
 		@include m.glass-surface();
 		box-shadow: 0 -25px 50px -12px rgb(0 0 0 / 0.4);
 		transform: translateY(100%);
@@ -46,7 +46,7 @@
 		.bottomSheetPanel {
 			top: 0;
 			bottom: 0;
-			width: 28rem;
+			width: 28em;
 			max-width: 100vw;
 			max-height: none;
 			margin: 0;
@@ -78,15 +78,16 @@
 	.drawerHeader {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
+		gap: 0.75em;
 		padding: var(--ui-draw-head-pad);
-		border-bottom: 1px solid rgb(255 255 255 / 0.1);
+		border-bottom: 1px solid var(--color-border-glass);
 
 		h2 {
 			font-family: var(--font-display);
 			font-size: var(--ui-draw-title);
 			font-weight: 600;
 			color: var(--color-primary);
+			margin-right: auto;
 		}
 
 		button {
@@ -104,6 +105,15 @@
 		}
 	}
 
+	.closeButton {
+		flex: 0 0 auto;
+	}
+
+	.siteConfigSelect {
+		width: 8em;
+		margin-left: auto;
+	}
+
 	.chapterNav {
 		display: flex;
 		flex-direction: column;
@@ -116,7 +126,7 @@
 		display: block;
 		padding: var(--ui-chap-link-pad);
 		border: 1px solid transparent;
-		border-radius: 0.75rem;
+		border-radius: 0.75em;
 		font-size: var(--ui-chap-link-txt);
 		text-align: left;
 		color: var(--color-muted);
@@ -128,7 +138,7 @@
 
 		&:hover {
 			color: var(--color-text-main);
-			background-color: rgb(255 255 255 / 0.05);
+			background-color: var(--color-control-hover);
 		}
 
 		&.active {
@@ -156,7 +166,7 @@
 	.commentItem {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.5em;
 	}
 
 	.commentMeta {
@@ -166,30 +176,40 @@
 	}
 
 	.user {
-		font-size: 0.875rem;
+		font-size: 0.875em;
 		font-weight: 500;
 		color: var(--color-primary);
 	}
 
 	.time {
-		font-size: 0.75rem;
+		font-size: 0.75em;
 		color: var(--color-muted);
 	}
 
 	.commentText {
 		font-family: var(--font-reader);
-		font-size: 1rem;
+		font-size: 1em;
 		line-height: 1.625;
 	}
 
 	.commentInputArea {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5em;
 		padding: var(--ui-add-comm-pad);
-		border-top: 1px solid rgb(255 255 255 / 0.12);
-		background-color: rgb(5 7 10 / 0.4);
+		border-top: 1px solid var(--color-border-glass);
+		background-color: var(--color-panel-solid);
 		backdrop-filter: blur(12px);
 		-webkit-backdrop-filter: blur(12px);
 	}
 
+	.extraFields {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5em;
+	}
+
+	.extraInputWrapper,
 	.inputWrapper {
 		position: relative;
 		display: flex;
@@ -197,11 +217,10 @@
 
 		input {
 			width: 100%;
-			padding: 0.75rem 1.5rem;
-			padding-right: 5rem;
-			border: 1px solid rgb(255 255 255 / 0.12);
+			padding: 0.75em 1.5em;
+			border: 1px solid var(--color-border-glass);
 			border-radius: 999px;
-			background-color: rgb(255 255 255 / 0.05);
+			background-color: var(--color-input-surface);
 			color: var(--color-text-main);
 			transition: border-color $duration-short4 $easing-standard;
 
@@ -218,15 +237,25 @@
 				opacity: 0.65;
 			}
 		}
+	}
+
+	.extraInputWrapper {
+		width: 100%;
+	}
+
+	.inputWrapper {
+		input {
+			padding-right: 5em;
+		}
 
 		button {
 			position: absolute;
-			right: 0.5rem;
-			padding: 0.5rem 1rem;
+			right: 0.5em;
+			padding: 0.5em 1em;
 			border-radius: 999px;
-			font-size: 0.75rem;
+			font-size: 0.75em;
 			font-weight: 700;
-			color: var(--color-background-dark);
+			color: var(--color-on-primary);
 			background-color: var(--color-primary);
 			transition: opacity $duration-short4 $easing-standard;
 

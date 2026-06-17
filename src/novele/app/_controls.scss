@@ -75,7 +75,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0.5rem;
+		padding: 0.5em;
 		border-radius: 999px;
 		color: var(--color-muted);
 		cursor: pointer;
@@ -85,7 +85,7 @@
 
 		&:hover:not(:disabled) {
 			color: var(--color-text-main);
-			background-color: rgb(255 255 255 / 0.05);
+			background-color: var(--color-control-hover);
 		}
 
 		&:disabled {
@@ -101,5 +101,13 @@
 
 	.active {
 		color: var(--color-primary);
+	}
+
+	.uiDirectionLeft {
+		.bottomBar {
+			right: auto;
+			left: var(--ui-bot-right);
+			flex-direction: row-reverse;
+		}
 	}
 }

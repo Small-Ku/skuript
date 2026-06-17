@@ -29,32 +29,35 @@ const readingWidthPresetMap = {
 
 function readerStyle(ui: UiState) {
 	return () => {
-		const fontSize =
-			ui.typographyMode.val === "slider"
-				? ui.textSizeValue.val
-				: textSizePresetMap[ui.textSizePreset.val];
-		const lineHeight =
-			ui.typographyMode.val === "slider"
-				? ui.lineSpacingValue.val
-				: lineSpacingPresetMap[ui.lineSpacingPreset.val];
-		const readingWidth =
-			ui.typographyMode.val === "slider"
-				? ui.readingWidthValue.val
-				: readingWidthPresetMap[ui.readingWidthPreset.val];
-		const paddingY =
-			ui.typographyMode.val === "slider"
-				? Math.max(1, (60 - ui.readingWidthValue.val) / 3)
-				: ui.readingWidthPreset.val === "narrow"
-					? 8
-					: ui.readingWidthPreset.val === "wide"
-						? 4
-						: 6;
-		return [
-			`font-size:${fontSize}px`,
-			`line-height:${lineHeight}`,
-			`max-width:${readingWidth}rem`,
-			`padding:${paddingY}rem 1.5rem`,
-		].join(";");
+		const fontSize = ui.advancedTextSize.val
+			? ui.textSizeValue.val
+			: textSizePresetMap[ui.textSizePreset.val];
+		const lineHeight = ui.advancedLineSpacing.val
+			? ui.lineSpacingValue.val
+			: lineSpacingPresetMap[ui.lineSpacingPreset.val];
+		const style = [`font-size:${fontSize}px`, `line-height:${lineHeight}`];
+		if (ui.typeface.val === "custom") {
+			style.push(`font-family:${ui.customTypeface.val}`);
+		}
+		return style.join(";");
+	};
+}
+
+function textContentStyle(ui: UiState) {
+	return () => {
+		const readingWidth = ui.advancedReadingWidth.val
+			? ui.readingWidthValue.val
+			: readingWidthPresetMap[ui.readingWidthPreset.val];
+		const paddingY = ui.advancedReadingWidth.val
+			? Math.max(1, (60 - ui.readingWidthValue.val) / 3)
+			: ui.readingWidthPreset.val === "narrow"
+				? 8
+				: ui.readingWidthPreset.val === "wide"
+					? 4
+					: 6;
+		return [`max-width:${readingWidth}em`, `padding:${paddingY}em 1.5em`].join(
+			";",
+		);
 	};
 }
 
@@ -64,6 +67,8 @@ function currentTypefaceClass(ui: UiState) {
 			return nameMap.fontUi;
 		case "fontLiterata":
 			return nameMap.fontLiterata;
+		case "custom":
+			return "";
 		default:
 			return nameMap.fontReader;
 	}
@@ -106,7 +111,10 @@ export function Reader(open: State<boolean>, ui: UiState) {
 		resetControlsTimeout();
 	};
 
-	const textContentRoot = div({ class: nameMap.textContent });
+	const textContentRoot = div({
+		class: nameMap.textContent,
+		style: textContentStyle(ui),
+	});
 
 	van.derive(() => {
 		const content = data.currentContent.val;
@@ -169,7 +177,13 @@ export function Reader(open: State<boolean>, ui: UiState) {
 		},
 		div(
 			{
-				class: nameMap.appContentWrapper,
+				class: () =>
+					[
+						nameMap.appContentWrapper,
+						open.val ? nameMap.appExpanded : "",
+					].join(" "),
+				style: () =>
+					`transform-origin:${ui.panelPosition.val === "left" ? "left" : "right"} center`,
 			},
 			readerSurface,
 			TopBar(ui, data, open),

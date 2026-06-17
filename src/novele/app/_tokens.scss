@@ -28,173 +28,213 @@
 	}
 
 	.app {
-		--color-background-dark: #05070a;
 		--color-background-light: #f5f8f8;
 		--color-bg: #05070a;
+		--color-bg-radiance: rgb(0 229 255 / 0.07);
+		--color-bg-sheen: rgb(255 255 255 / 0.03);
+		--color-reader-bg: #05070a;
 		--color-surface: rgb(255 255 255 / 0.04);
 		--color-surface-hover: rgb(255 255 255 / 0.08);
+		--color-control-hover: rgb(255 255 255 / 0.08);
+		--color-input-surface: rgb(255 255 255 / 0.05);
+		--color-panel-solid: rgb(5 7 10 / 0.74);
+		--color-fab-surface: rgb(12 16 20 / 0.65);
+		--color-fab-surface-hover: rgb(12 16 20 / 0.8);
 		--color-border-glass: rgb(255 255 255 / 0.12);
 		--color-text-main: #f2f5f8;
+		--color-reader-text: #d8dee6;
+		--color-reader-muted: #828d99;
+		--color-reader-heading: #8ee7f4;
 		--color-muted: #8a96a3;
 		--color-primary: #00e5ff;
-		--shadow-glow-primary: 0 8px 32px rgb(0 229 255 / 0.07);
+		--color-primary-glow: rgb(0 229 255 / 0.16);
+		--color-on-primary: #05070a;
+		--shadow-glow-primary: 0 8px 32px var(--color-primary-glow);
 		--font-ui: "Satoshi", "Segoe UI", sans-serif;
 		--font-display: "Clash Display", "Segoe UI", sans-serif;
 		--font-reader: "Newsreader", Georgia, serif;
 		--font-literata: "Literata", Georgia, serif;
-		--ui-top-pad: 0.75rem;
-		--ui-badge-pad: 0.75rem 1.5rem;
-		--ui-badge-txt: 0.875rem;
-		--ui-bot-bot: 2rem;
-		--ui-bot-right: calc(2rem + 3.5rem + 1rem);
-		--ui-bot-gap: 1rem;
-		--ui-nav-h: 3.5rem;
-		--ui-nav-pad: 0 1.5rem;
-		--ui-nav-gap: 1.5rem;
-		--ui-arrow-pad: 0 1rem;
-		--ui-arrow-gap: 0.75rem;
-		--ui-fab-bot: 2rem;
-		--ui-fab-right: 2rem;
-		--ui-fab-w: 3.5rem;
-		--ui-fab-h: 3.5rem;
-		--ui-draw-head-pad: 1rem 1.5rem;
-		--ui-draw-title: 1.25rem;
-		--ui-set-body-pad: 1.5rem 1.75rem;
-		--ui-tab-mb: 2rem;
-		--ui-tab-pad: 0.35rem;
-		--ui-tab-btn-pad: 0.5rem 0;
-		--ui-tab-btn-txt: 0.875rem;
-		--ui-tab-gap: 1.5rem;
-		--ui-lbl-mb: 1rem;
-		--ui-lbl-txt: 0.8125rem;
-		--ui-btn-row-pad: 0.375rem 0.75rem;
-		--ui-btn-row-txt: 0.875rem;
-		--ui-slide-head-mb: 1rem;
-		--ui-chap-nav-pad: 1rem 1.5rem;
-		--ui-chap-nav-gap: 0.5rem;
-		--ui-chap-link-pad: 1rem;
-		--ui-chap-link-txt: 1rem;
-		--ui-comm-pad: 1.5rem 1.75rem;
-		--ui-comm-gap: 1.5rem;
-		--ui-add-comm-pad: 1.5rem 1.75rem;
+		--ui-top-pad: 0.75em;
+		--ui-badge-pad: 0.75em 1.5em;
+		--ui-badge-txt: 0.875em;
+		--ui-bot-bot: 2em;
+		--ui-bot-right: calc(2em + 3.5em + 1em);
+		--ui-bot-gap: 1em;
+		--ui-nav-h: 3.5em;
+		--ui-nav-pad: 0 1.5em;
+		--ui-nav-gap: 1.5em;
+		--ui-arrow-pad: 0 1em;
+		--ui-arrow-gap: 0.75em;
+		--ui-fab-bot: 2em;
+		--ui-fab-right: 2em;
+		--ui-fab-w: 3.5em;
+		--ui-fab-h: 3.5em;
+		--ui-fab-center-x: calc(100% - var(--ui-fab-right) - (var(--ui-fab-w) / 2));
+		--ui-fab-center-y: calc(100% - var(--ui-fab-bot) - (var(--ui-fab-h) / 2));
+		--ui-draw-head-pad: 1em 1.5em;
+		--ui-draw-title: 1.25em;
+		--ui-set-body-pad: 1.5em 1.75em;
+		--ui-tab-mb: 2em;
+		--ui-tab-pad: 0.35em;
+		--ui-tab-btn-pad: 0.5em 0;
+		--ui-tab-btn-txt: 0.875em;
+		--ui-tab-gap: 1.5em;
+		--ui-lbl-mb: 1em;
+		--ui-lbl-txt: 0.8125em;
+		--ui-btn-row-pad: 0.375em 0.75em;
+		--ui-btn-row-txt: 0.875em;
+		--ui-slide-head-mb: 1em;
+		--ui-chap-nav-pad: 1em 1.5em;
+		--ui-chap-nav-gap: 0.5em;
+		--ui-chap-link-pad: 1em;
+		--ui-chap-link-txt: 1em;
+		--ui-comm-pad: 1.5em 1.75em;
+		--ui-comm-gap: 1.5em;
+		--ui-add-comm-pad: 1.5em 1.75em;
 		font-family: var(--font-ui);
 		color: var(--color-text-main);
 	}
 
 	.themeLight {
-		--color-background-dark: #f5f7fa;
 		--color-bg: #f5f7fa;
+		--color-bg-radiance: rgb(16 95 170 / 0.1);
+		--color-bg-sheen: rgb(255 255 255 / 0.24);
+		--color-reader-bg: #fcfcfd;
 		--color-surface: rgb(255 255 255 / 0.7);
 		--color-surface-hover: rgb(255 255 255 / 0.92);
+		--color-control-hover: rgb(255 255 255 / 0.74);
+		--color-input-surface: rgb(255 255 255 / 0.68);
+		--color-panel-solid: rgb(255 255 255 / 0.94);
+		--color-fab-surface: rgb(255 255 255 / 0.85);
+		--color-fab-surface-hover: rgb(255 255 255);
 		--color-border-glass: rgb(0 0 0 / 0.08);
 		--color-text-main: #1a1f24;
+		--color-reader-text: #313942;
+		--color-reader-muted: #6b7280;
+		--color-reader-heading: #1d4f8f;
 		--color-muted: #64748b;
+		--color-on-primary: #ffffff;
 	}
 
 	.themeDark {
-		--color-background-dark: #05070a;
 		--color-bg: #05070a;
+		--color-bg-radiance: rgb(0 229 255 / 0.07);
+		--color-bg-sheen: rgb(255 255 255 / 0.03);
+		--color-reader-bg: #05070a;
 		--color-surface: rgb(255 255 255 / 0.04);
 		--color-surface-hover: rgb(255 255 255 / 0.08);
+		--color-control-hover: rgb(255 255 255 / 0.08);
+		--color-input-surface: rgb(255 255 255 / 0.05);
+		--color-panel-solid: rgb(5 7 10 / 0.74);
+		--color-fab-surface: rgb(12 16 20 / 0.65);
+		--color-fab-surface-hover: rgb(12 16 20 / 0.8);
 		--color-border-glass: rgb(255 255 255 / 0.12);
 		--color-text-main: #f2f5f8;
+		--color-reader-text: #d8dee6;
+		--color-reader-muted: #828d99;
+		--color-reader-heading: #8ee7f4;
 		--color-muted: #8a96a3;
+		--color-on-primary: #05070a;
 	}
 
 	.colorCyan {
 		--color-primary: #00e5ff;
-		--shadow-glow-primary: 0 8px 32px rgb(0 229 255 / 0.07);
+		--color-primary-glow: rgb(0 229 255 / 0.16);
+		--shadow-glow-primary: 0 8px 32px var(--color-primary-glow);
 	}
 
 	.colorEmerald {
 		--color-primary: #10b981;
-		--shadow-glow-primary: 0 8px 32px rgb(16 185 129 / 0.07);
+		--color-primary-glow: rgb(16 185 129 / 0.16);
+		--shadow-glow-primary: 0 8px 32px var(--color-primary-glow);
 	}
 
 	.colorAmber {
 		--color-primary: #f59e0b;
-		--shadow-glow-primary: 0 8px 32px rgb(245 158 11 / 0.07);
+		--color-primary-glow: rgb(245 158 11 / 0.16);
+		--shadow-glow-primary: 0 8px 32px var(--color-primary-glow);
 	}
 
 	.colorRose {
 		--color-primary: #f43f5e;
-		--shadow-glow-primary: 0 8px 32px rgb(244 63 94 / 0.07);
+		--color-primary-glow: rgb(244 63 94 / 0.16);
+		--shadow-glow-primary: 0 8px 32px var(--color-primary-glow);
 	}
 
 	.uiDensityCompact {
-		--ui-top-pad: 0.5rem;
-		--ui-badge-pad: 0.5rem 1rem;
-		--ui-badge-txt: 0.75rem;
-		--ui-bot-bot: 0.75rem;
-		--ui-bot-right: calc(0.75rem + 2.75rem + 0.5rem);
-		--ui-bot-gap: 0.5rem;
-		--ui-nav-h: 2.75rem;
-		--ui-nav-pad: 0 1rem;
-		--ui-nav-gap: 1rem;
-		--ui-arrow-pad: 0 0.75rem;
-		--ui-arrow-gap: 0.5rem;
-		--ui-fab-bot: 0.75rem;
-		--ui-fab-right: 0.75rem;
-		--ui-fab-w: 2.75rem;
-		--ui-fab-h: 2.75rem;
-		--ui-draw-head-pad: 0.5rem 1rem;
-		--ui-draw-title: 1.125rem;
-		--ui-set-body-pad: 0.75rem 1.25rem;
-		--ui-tab-mb: 1rem;
-		--ui-tab-pad: 0.2rem;
-		--ui-tab-btn-pad: 0.35rem 0;
-		--ui-tab-btn-txt: 0.75rem;
-		--ui-tab-gap: 1rem;
-		--ui-lbl-mb: 0.5rem;
-		--ui-btn-row-pad: 0.25rem 0.5rem;
-		--ui-btn-row-txt: 0.8rem;
-		--ui-slide-head-mb: 0.5rem;
-		--ui-chap-nav-pad: 0.75rem 1.25rem;
-		--ui-chap-nav-gap: 0.25rem;
-		--ui-chap-link-pad: 0.5rem 0.75rem;
-		--ui-chap-link-txt: 0.875rem;
-		--ui-comm-pad: 0.75rem 1.25rem;
-		--ui-comm-gap: 0.75rem;
-		--ui-add-comm-pad: 0.75rem 1.25rem;
+		--ui-top-pad: 0.5em;
+		--ui-badge-pad: 0.5em 1em;
+		--ui-badge-txt: 0.75em;
+		--ui-bot-bot: 0.75em;
+		--ui-bot-right: calc(0.75em + 2.75em + 0.5em);
+		--ui-bot-gap: 0.5em;
+		--ui-nav-h: 2.75em;
+		--ui-nav-pad: 0 1em;
+		--ui-nav-gap: 1em;
+		--ui-arrow-pad: 0 0.75em;
+		--ui-arrow-gap: 0.5em;
+		--ui-fab-bot: 0.75em;
+		--ui-fab-right: 0.75em;
+		--ui-fab-w: 2.75em;
+		--ui-fab-h: 2.75em;
+		--ui-draw-head-pad: 0.5em 1em;
+		--ui-draw-title: 1.125em;
+		--ui-set-body-pad: 0.75em 1.25em;
+		--ui-tab-mb: 1em;
+		--ui-tab-pad: 0.2em;
+		--ui-tab-btn-pad: 0.35em 0;
+		--ui-tab-btn-txt: 0.75em;
+		--ui-tab-gap: 1em;
+		--ui-lbl-mb: 0.5em;
+		--ui-btn-row-pad: 0.25em 0.5em;
+		--ui-btn-row-txt: 0.8em;
+		--ui-slide-head-mb: 0.5em;
+		--ui-chap-nav-pad: 0.75em 1.25em;
+		--ui-chap-nav-gap: 0.25em;
+		--ui-chap-link-pad: 0.5em 0.75em;
+		--ui-chap-link-txt: 0.875em;
+		--ui-comm-pad: 0.75em 1.25em;
+		--ui-comm-gap: 0.75em;
+		--ui-add-comm-pad: 0.75em 1.25em;
 	}
 
 	.uiDensityComfortable {}
 
 	.uiDensitySpacious {
-		--ui-top-pad: 2rem;
-		--ui-badge-pad: 1rem 2rem;
-		--ui-badge-txt: 1rem;
-		--ui-bot-bot: 3rem;
-		--ui-bot-right: calc(3rem + 4rem + 1.5rem);
-		--ui-bot-gap: 1.5rem;
-		--ui-nav-h: 4rem;
-		--ui-nav-pad: 0 2rem;
-		--ui-nav-gap: 2rem;
-		--ui-arrow-pad: 0 1.25rem;
-		--ui-arrow-gap: 1rem;
-		--ui-fab-bot: 3rem;
-		--ui-fab-right: 3rem;
-		--ui-fab-w: 4rem;
-		--ui-fab-h: 4rem;
-		--ui-draw-head-pad: 1.5rem 2rem;
-		--ui-draw-title: 1.5rem;
-		--ui-set-body-pad: 2rem;
-		--ui-tab-mb: 3rem;
-		--ui-tab-pad: 0.5rem;
-		--ui-tab-btn-pad: 0.75rem 0;
-		--ui-tab-btn-txt: 1rem;
-		--ui-tab-gap: 2rem;
-		--ui-lbl-mb: 1.25rem;
-		--ui-btn-row-pad: 0.5rem 1rem;
-		--ui-btn-row-txt: 1rem;
-		--ui-slide-head-mb: 1.25rem;
-		--ui-chap-nav-pad: 2rem;
-		--ui-chap-nav-gap: 1rem;
-		--ui-chap-link-pad: 1.5rem;
-		--ui-chap-link-txt: 1.125rem;
-		--ui-comm-pad: 2rem;
-		--ui-comm-gap: 2rem;
-		--ui-add-comm-pad: 2rem;
+		--ui-top-pad: 2em;
+		--ui-badge-pad: 1em 2em;
+		--ui-badge-txt: 1em;
+		--ui-bot-bot: 3em;
+		--ui-bot-right: calc(3em + 4em + 1.5em);
+		--ui-bot-gap: 1.5em;
+		--ui-nav-h: 4em;
+		--ui-nav-pad: 0 2em;
+		--ui-nav-gap: 2em;
+		--ui-arrow-pad: 0 1.25em;
+		--ui-arrow-gap: 1em;
+		--ui-fab-bot: 3em;
+		--ui-fab-right: 3em;
+		--ui-fab-w: 4em;
+		--ui-fab-h: 4em;
+		--ui-draw-head-pad: 1.5em 2em;
+		--ui-draw-title: 1.5em;
+		--ui-set-body-pad: 2em;
+		--ui-tab-mb: 3em;
+		--ui-tab-pad: 0.5em;
+		--ui-tab-btn-pad: 0.75em 0;
+		--ui-tab-btn-txt: 1em;
+		--ui-tab-gap: 2em;
+		--ui-lbl-mb: 1.25em;
+		--ui-btn-row-pad: 0.5em 1em;
+		--ui-btn-row-txt: 1em;
+		--ui-slide-head-mb: 1.25em;
+		--ui-chap-nav-pad: 2em;
+		--ui-chap-nav-gap: 1em;
+		--ui-chap-link-pad: 1.5em;
+		--ui-chap-link-txt: 1.125em;
+		--ui-comm-pad: 2em;
+		--ui-comm-gap: 2em;
+		--ui-add-comm-pad: 2em;
 	}
 
 	.fontReader {

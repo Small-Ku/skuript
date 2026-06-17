@@ -208,3 +208,9 @@ export const IconClose = (prop?: Record<string, PropValueOrDerived>) =>
 		"M256-200 200-256l224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z",
 		prop,
 	);
+
+export const IconExpandMore = (prop?: Record<string, PropValueOrDerived>) =>
+	_icon(
+		"M480-360 280-560l56-56 144 144 144-144 56 56-200 200Z",
+		prop,
+	);

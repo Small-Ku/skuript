@@ -1,21 +1,24 @@
 import van, { type ChildDom, type State } from "vanjs-core";
-import { IconClose } from "../../style/icon";
+import { IconClose, IconTune } from "../../style/icon";
+import { CustomDropdown } from "./component/custom-dropdown";
+import { getMaxChroma, oklchToRgb, rgbToHex } from "./color-math";
 import type { createReaderData } from "./reader-data";
-import type { createUiState } from "./state";
+import { siteCommentConfigs, type createUiState } from "./state";
 import nameMap from "./style.module.scss";
 import type {
 	InterfaceDensity,
 	LineSpacingPreset,
+	Oklch,
 	PanelPosition,
 	ReadingWidthPreset,
 	SettingsTab,
 	TextSizePreset,
-	ThemeColor,
 	ThemeMode,
 	Typeface,
 } from "./types";
 
-const { aside, button, div, h2, input, nav, p, span } = van.tags;
+const { aside, button, div, h2, input, nav, p, span } =
+	van.tags;
 
 type UiState = ReturnType<typeof createUiState>;
 type ReaderData = ReturnType<typeof createReaderData>;
@@ -32,6 +35,7 @@ const typefaceOptions = [
 		value: "fontLiterata" as Typeface,
 		className: nameMap.fontLiterata,
 	},
+	{ label: "Custom...", value: "custom" as Typeface },
 ];
 
 const textSizeOptions = [
@@ -69,13 +73,6 @@ const themeModeOptions = [
 	{ label: "Dark", value: "dark" as ThemeMode },
 ];
 
-const themeColorOptions = [
-	{ label: "Cyan", value: "cyan" as ThemeColor },
-	{ label: "Emerald", value: "emerald" as ThemeColor },
-	{ label: "Amber", value: "amber" as ThemeColor },
-	{ label: "Rose", value: "rose" as ThemeColor },
-];
-
 function drawerClass(
 	ui: UiState,
 	name: "chapters" | "comments" | "settings",
@@ -92,12 +89,17 @@ function drawerClass(
 			.join(" ");
 }
 
-function drawerHeader(title: string, close: () => void) {
+function drawerHeader(title: string, close: () => void, ...tail: ChildDom[]) {
 	return div(
 		{ class: nameMap.drawerHeader },
 		h2(title),
+		...tail,
 		button(
-			{ onclick: close, title: `Close ${title.toLowerCase()}` },
+			{
+				class: nameMap.closeButton,
+				onclick: close,
+				title: `Close ${title.toLowerCase()}`,
+			},
 			IconClose(),
 		),
 	);
@@ -109,23 +111,21 @@ function segmentedButtonGroup<T extends string>(
 ) {
 	return div(
 		{ class: nameMap.buttonRow },
-		...options.map((option) =>
+		...options.map((entry) =>
 			button(
 				{
 					class: () =>
 						[
-							currentValue.val === option.value
-								? nameMap.active
-								: nameMap.inactive,
-							option.className ?? "",
+							currentValue.val === entry.value ? nameMap.active : nameMap.inactive,
+							entry.className ?? "",
 						]
 							.filter(Boolean)
 							.join(" "),
 					onclick: () => {
-						currentValue.val = option.value;
+						currentValue.val = entry.value;
 					},
 				},
-				option.label,
+				entry.label,
 			),
 		),
 	);
@@ -139,146 +139,240 @@ function settingGroup(labelText: string, ...children: ChildDom[]) {
 	);
 }
 
-function sliderField(
+function advancedToggle(
+	enabled: State<boolean>,
 	labelText: string,
 	valueText: () => string,
+) {
+	return div(
+		{ class: nameMap.sliderHeader },
+		span({ class: nameMap.label }, labelText),
+		div(
+			{ class: nameMap.sliderActions },
+			() => (enabled.val ? span({ class: nameMap.value }, valueText) : ""),
+			button(
+				{
+					class: () =>
+						[
+							nameMap.advancedToggle,
+							enabled.val ? nameMap.active : nameMap.inactive,
+						].join(" "),
+					onclick: () => {
+						enabled.val = !enabled.val;
+					},
+					title: enabled.val ? "Use advanced slider" : "Use presets",
+				},
+				IconTune(),
+			),
+		),
+	);
+}
+
+function sliderField(
+	labelText: string,
+	enabled: State<boolean>,
+	valueText: () => string,
 	inputProps: Record<string, any>,
+	presetGroup: ChildDom,
 ) {
 	return div(
 		{ class: nameMap.settingsGroup },
+		advancedToggle(enabled, labelText, valueText),
+		() =>
+			enabled.val
+				? input({ class: nameMap.rangeInput, type: "range", ...inputProps })
+				: presetGroup,
+	);
+}
+
+function colorFor(seed: Oklch) {
+	const rgb = oklchToRgb(seed);
+	return rgbToHex({
+		r: Math.max(0, Math.min(1, rgb.r)),
+		g: Math.max(0, Math.min(1, rgb.g)),
+		b: Math.max(0, Math.min(1, rgb.b)),
+	});
+}
+
+function oklchPicker(seed: State<Oklch>, labelText: string) {
+	const minChroma = 0;
+	const fixedLightness = 0.64;
+	const chromaForHue = (hue: number) => getMaxChroma(fixedLightness, hue);
+
+	const updateFromPointer = (event: PointerEvent, element: HTMLDivElement) => {
+		const rect = element.getBoundingClientRect();
+		const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+		const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+		const hue = x * 360;
+		const maxChroma = chromaForHue(hue);
+		seed.val = {
+			...seed.val,
+			h: hue,
+			c: minChroma + (1 - y) * (maxChroma - minChroma),
+		};
+	};
+
+	return div(
+		{ class: nameMap.pickerContainer },
 		div(
-			{ class: nameMap.sliderHeader },
-			span({ class: nameMap.label }, labelText),
-			span({ class: nameMap.value }, valueText),
+			{ class: nameMap.pickerHeader },
+			span(labelText),
+			span(() => `H: ${Math.round(seed.val.h)}° C: ${seed.val.c.toFixed(3)}`),
 		),
-		input({ type: "range", ...inputProps }),
+		div({
+			class: nameMap.pickerSurface,
+			style: () =>
+				`background:linear-gradient(to right, ${[
+					0, 60, 120, 180, 240, 300, 360,
+				]
+					.map((hue) =>
+						colorFor({ l: fixedLightness, c: chromaForHue(hue), h: hue }),
+					)
+					.join(",")});`,
+			onpointerdown: (event: PointerEvent) => {
+				const target = event.currentTarget as HTMLDivElement;
+				updateFromPointer(event, target);
+				target.setPointerCapture(event.pointerId);
+			},
+			onpointermove: (event: PointerEvent) => {
+				const target = event.currentTarget as HTMLDivElement;
+				if (target.hasPointerCapture(event.pointerId)) {
+					updateFromPointer(event, target);
+				}
+			},
+			onpointerup: (event: PointerEvent) => {
+				const target = event.currentTarget as HTMLDivElement;
+				if (target.hasPointerCapture(event.pointerId)) {
+					target.releasePointerCapture(event.pointerId);
+				}
+			},
+		},
+			div({ class: nameMap.pickerOverlay }),
+			div({
+				class: nameMap.pickerThumb,
+				style: () => {
+					const maxChroma = chromaForHue(seed.val.h);
+					const chromaRatio =
+						maxChroma <= minChroma
+							? 0
+							: (seed.val.c - minChroma) / (maxChroma - minChroma);
+					return [
+						`left:${(seed.val.h / 360) * 100}%`,
+						`top:${(1 - Math.max(0, Math.min(1, chromaRatio))) * 100}%`,
+						`background-color:${colorFor({ l: fixedLightness, c: seed.val.c, h: seed.val.h })}`,
+					].join(";");
+				},
+			}),
+		),
 	);
 }
 
 function typographyTab(ui: UiState) {
 	return div(
 		{ class: nameMap.tabContent },
-		settingGroup(
-			"Typeface",
-			segmentedButtonGroup(ui.typeface, typefaceOptions),
-		),
-		div(
-			{ class: `${nameMap.settingsGroup} ${nameMap.inlineSetting}` },
-			span({ class: nameMap.label }, "Advanced Styling"),
-			button(
-				{
-					class: () =>
-						[
-							nameMap.toggle,
-							ui.typographyMode.val === "slider" ? nameMap.enabled : "",
-						]
-							.filter(Boolean)
-							.join(" "),
-					onclick: () => {
-						ui.typographyMode.val =
-							ui.typographyMode.val === "slider" ? "preset" : "slider";
-					},
-				},
-				div({ class: nameMap.toggleThumb }),
-			),
-		),
+		settingGroup("Typeface", CustomDropdown(ui.typeface, typefaceOptions)),
 		() =>
-			ui.typographyMode.val === "slider"
-				? sliderField("Text Size", () => `${ui.textSizeValue.val}px`, {
-						min: 14,
-						max: 28,
-						value: () => ui.textSizeValue.val,
-						oninput: (event: Event) => {
-							ui.textSizeValue.val = parseInt(
-								(event.target as HTMLInputElement).value,
-								10,
-							);
-						},
-					})
-				: settingGroup(
-						"Text Size",
-						segmentedButtonGroup(ui.textSizePreset, textSizeOptions),
-					),
-		() =>
-			ui.typographyMode.val === "slider"
-				? sliderField(
-						"Line Spacing",
-						() => `${ui.lineSpacingValue.val.toFixed(2)}x`,
-						{
-							min: 1.1,
-							max: 2.5,
-							step: 0.05,
-							value: () => ui.lineSpacingValue.val,
+			ui.typeface.val === "custom"
+				? div(
+						{ class: nameMap.inputWrapper },
+						input({
+							class: nameMap.textInput,
+							type: "text",
+							placeholder: "e.g. system-ui, Arial",
+							value: () => ui.customTypeface.val,
 							oninput: (event: Event) => {
-								ui.lineSpacingValue.val = parseFloat(
-									(event.target as HTMLInputElement).value,
-								);
+								ui.customTypeface.val = (
+									event.target as HTMLInputElement
+								).value;
 							},
-						},
+						}),
 					)
-				: settingGroup(
-						"Line Spacing",
-						segmentedButtonGroup(ui.lineSpacingPreset, lineSpacingOptions),
-					),
-		() =>
-			ui.typographyMode.val === "slider"
-				? sliderField("Page Width", () => `${ui.readingWidthValue.val}rem`, {
-						min: 30,
-						max: 60,
-						value: () => ui.readingWidthValue.val,
-						oninput: (event: Event) => {
-							ui.readingWidthValue.val = parseInt(
-								(event.target as HTMLInputElement).value,
-								10,
-							);
-						},
-					})
-				: settingGroup(
-						"Page Width",
-						segmentedButtonGroup(ui.readingWidthPreset, readingWidthOptions),
-					),
+				: "",
+		sliderField(
+			"Text Size",
+			ui.advancedTextSize,
+			() => `${ui.textSizeValue.val}px`,
+			{
+				min: 14,
+				max: 28,
+				value: () => ui.textSizeValue.val,
+				oninput: (event: Event) => {
+					ui.textSizeValue.val = parseInt(
+						(event.target as HTMLInputElement).value,
+						10,
+					);
+				},
+			},
+			segmentedButtonGroup(ui.textSizePreset, textSizeOptions),
+		),
+		sliderField(
+			"Line Spacing",
+			ui.advancedLineSpacing,
+			() => `${ui.lineSpacingValue.val.toFixed(2)}x`,
+			{
+				min: 1.1,
+				max: 2.5,
+				step: 0.05,
+				value: () => ui.lineSpacingValue.val,
+				oninput: (event: Event) => {
+					ui.lineSpacingValue.val = parseFloat(
+						(event.target as HTMLInputElement).value,
+					);
+				},
+			},
+			segmentedButtonGroup(ui.lineSpacingPreset, lineSpacingOptions),
+		),
+		sliderField(
+			"Page Width",
+			ui.advancedReadingWidth,
+			() => `${ui.readingWidthValue.val}em`,
+			{
+				min: 30,
+				max: 60,
+				value: () => ui.readingWidthValue.val,
+				oninput: (event: Event) => {
+					ui.readingWidthValue.val = parseInt(
+						(event.target as HTMLInputElement).value,
+						10,
+					);
+				},
+			},
+			segmentedButtonGroup(ui.readingWidthPreset, readingWidthOptions),
+		),
 	);
 }
 
 function interfaceTab(ui: UiState) {
 	return div(
 		{ class: nameMap.tabContent },
-		settingGroup(
+		sliderField(
 			"Interface Density",
+			ui.advancedInterfaceDensity,
+			() => `${ui.interfaceScale.val.toFixed(2)}x`,
+			{
+				min: 0.75,
+				max: 1.3,
+				step: 0.05,
+				value: () => ui.interfaceScale.val,
+				oninput: (event: Event) => {
+					ui.interfaceScale.val = parseFloat(
+						(event.target as HTMLInputElement).value,
+					);
+				},
+			},
 			segmentedButtonGroup(ui.interfaceDensity, densityOptions),
 		),
-		settingGroup(
-			"Panel Position",
-			segmentedButtonGroup(ui.panelPosition, panelOptions),
-		),
-		settingGroup(
-			"Theme Mode",
-			segmentedButtonGroup(ui.themeMode, themeModeOptions),
-		),
-		settingGroup(
-			"Theme Color",
-			div(
-				{ class: `${nameMap.buttonRow} ${nameMap.colorPicker}` },
-				...themeColorOptions.map((option) =>
-					button(
-						{
-							class: () =>
-								[
-									nameMap.colorButton,
-									nameMap[`swatch${option.label}`],
-									ui.themeColor.val === option.value ? nameMap.active : "",
-								]
-									.filter(Boolean)
-									.join(" "),
-							onclick: () => {
-								ui.themeColor.val = option.value;
-							},
-							title: option.label,
-						},
-						div({ class: nameMap.colorSwatch }),
-					),
-				),
-			),
+		settingGroup("UI Direction", segmentedButtonGroup(ui.panelPosition, panelOptions)),
+		settingGroup("Theme Mode", segmentedButtonGroup(ui.themeMode, themeModeOptions)),
+		div(
+			{ class: nameMap.settingsGroup },
+			span({ class: nameMap.label }, "Color Pipeline"),
+			div({ class: nameMap.colorSectionTitle }, "Light Mode Seeds"),
+			oklchPicker(ui.lightPrimarySeed, "Primary Color Seed"),
+			oklchPicker(ui.lightSurfaceSeed, "Surface Tint Seed"),
+			div({ class: nameMap.colorSectionTitle }, "Dark Mode Seeds"),
+			oklchPicker(ui.darkPrimarySeed, "Primary Color Seed"),
+			oklchPicker(ui.darkSurfaceSeed, "Surface Tint Seed"),
 		),
 	);
 }
@@ -293,16 +387,16 @@ function settingsPanel(ui: UiState) {
 					{ label: "Typography", value: "typography" },
 					{ label: "Interface", value: "interface" },
 				] as { label: string; value: SettingsTab }[]
-			).map((option) =>
+			).map((entry) =>
 				button(
 					{
 						class: () =>
-							ui.settingsTab.val === option.value ? nameMap.active : "",
+							ui.settingsTab.val === entry.value ? nameMap.active : "",
 						onclick: () => {
-							ui.settingsTab.val = option.value;
+							ui.settingsTab.val = entry.value;
 						},
 					},
-					option.label,
+					entry.label,
 				),
 			),
 		),
@@ -344,28 +438,40 @@ export function OverlayPanels(
 	};
 	const chapterNavRoot = nav({ class: nameMap.chapterNav });
 	const commentsRoot = div({ class: nameMap.commentsList, onscroll: onInteraction });
+	const siteConfigSelect = div(
+		{ class: nameMap.siteConfigSelect },
+		CustomDropdown(
+			ui.activeSiteConfigId,
+			siteCommentConfigs.map((entry) => ({
+				label: entry.name,
+				value: entry.id,
+			})),
+			"sm",
+		),
+	);
+	const extraFieldsRoot = div({ class: nameMap.extraFields });
 
 	van.derive(() => {
-		const currentUrl =
-			data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
-		const chapterButtons = data.chapterEntries.val.map((entry) =>
-			button(
-				{
-					class: [
-						nameMap.chapterLink,
-						entry.url === currentUrl ? nameMap.active : "",
-					]
-						.filter(Boolean)
-						.join(" "),
-					onclick: () => {
-						data.goTo(entry.linkIndex);
-						close();
+		const currentUrl = data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
+		chapterNavRoot.replaceChildren(
+			...data.chapterEntries.val.map((entry) =>
+				button(
+					{
+						class: [
+							nameMap.chapterLink,
+							entry.url === currentUrl ? nameMap.active : "",
+						]
+							.filter(Boolean)
+							.join(" "),
+						onclick: () => {
+							data.goTo(entry.linkIndex);
+							close();
+						},
 					},
-				},
-				entry.title,
+					entry.title,
+				),
 			),
 		);
-		chapterNavRoot.replaceChildren(...chapterButtons);
 	});
 
 	van.derive(() => {
@@ -410,6 +516,25 @@ export function OverlayPanels(
 		);
 	});
 
+	van.derive(() => {
+		const config =
+			siteCommentConfigs.find((entry) => entry.id === ui.activeSiteConfigId.val) ??
+			siteCommentConfigs[0];
+		extraFieldsRoot.replaceChildren(
+			...config.fields.map((field) =>
+				div(
+					{ class: nameMap.extraInputWrapper },
+					input({
+						class: nameMap.textInput,
+						type: field.type,
+						placeholder: field.placeholder,
+						disabled: true,
+					}),
+				),
+			),
+		);
+	});
+
 	return [
 		aside(
 			{
@@ -424,17 +549,19 @@ export function OverlayPanels(
 				class: drawerClass(ui, "comments", nameMap.commentsSheet),
 				onclick: (event) => event.stopPropagation(),
 			},
-			drawerHeader("Comments", close),
+			drawerHeader("Comments", close, siteConfigSelect),
 			commentsRoot,
 			div(
 				{ class: nameMap.commentInputArea },
+				extraFieldsRoot,
 				div(
 					{ class: nameMap.inputWrapper },
 					input({
+						class: nameMap.textInput,
 						type: "text",
 						placeholder: "Add a comment...",
 						value: () => ui.commentDraft.val,
-						oninput: (event) => {
+						oninput: (event: Event) => {
 							ui.commentDraft.val = (event.target as HTMLInputElement).value;
 						},
 						disabled: true,
