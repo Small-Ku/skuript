@@ -3,8 +3,8 @@ import { IconExitToApp, IconReadMore } from "../../style/icon";
 import { bindUiPreferences, loadUiPreferences } from "./config";
 import { Reader } from "./reader";
 import { createUiState } from "./state";
-import { generateThemeVars } from "./theme";
-import nameMap from "./style.module.scss";
+import nameMap from "./styles/style.module.scss";
+import { generateThemeVars } from "./theme/theme";
 
 const { button, div, span } = van.tags;
 

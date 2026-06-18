@@ -1,9 +1,7 @@
-import type { HueFilter, Oklch, RGB } from "./types";
+import type { HueFilter, Oklch, RGB } from "../types";
 
 function srgbToLinear(value: number) {
-	return value <= 0.04045
-		? value / 12.92
-		: ((value + 0.055) / 1.055) ** 2.4;
+	return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 }
 
 function linearToSrgb(value: number) {

@@ -1,3 +1,4 @@
+import { getCommentPageRefs } from "./comments";
 import { hostname } from "./hostname-map";
 import {
 	type CommentPageRef,
@@ -7,7 +8,6 @@ import {
 	type StoredPage,
 	setPage as setStoredPage,
 } from "./storage";
-import { getCommentPageRefs } from "./comments";
 
 export type Page = StoredPage;
 

@@ -1,8 +1,8 @@
 import van, { type State } from "vanjs-core";
 import { HorizonDir, IconChevron, IconExitToApp } from "../../style/icon";
 import { nav } from "../core/nav";
-import { Fab } from "./component/fab";
-import nameMap from "./style.module.scss";
+import { Fab } from "./components/fab";
+import nameMap from "./styles/style.module.scss";
 
 const { div, input } = van.tags;
 

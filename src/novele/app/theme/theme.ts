@@ -1,10 +1,10 @@
+import type { HueFilter, Oklch, RGB } from "../types";
 import {
 	getTonalRgb,
 	relativeLuminance,
-	rgbToHex,
 	rgbaString,
+	rgbToHex,
 } from "./color-math";
-import type { HueFilter, Oklch, RGB } from "./types";
 
 const hueFilters: HueFilter[] = [
 	{
@@ -58,7 +58,9 @@ function contrastRatio(a: RGB, b: RGB) {
 function getReadableOnColor(color: RGB, seed: Oklch, filters: HueFilter[]) {
 	const light = getTonalRgb(0.98, withChroma(seed, 0.08), filters);
 	const dark = getTonalRgb(0.12, withChroma(seed, 0.12), filters);
-	return contrastRatio(color, dark) >= contrastRatio(color, light) ? dark : light;
+	return contrastRatio(color, dark) >= contrastRatio(color, light)
+		? dark
+		: light;
 }
 
 export function generateThemeVars(

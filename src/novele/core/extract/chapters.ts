@@ -59,14 +59,6 @@ const bookTitleRegex = new RegExp(
 	`\\{bookTitle\\}[\\p{Unified_Ideograph}\\s：]*(${numberRegex}+)`,
 	"u",
 );
-const candidatePatterns: NonNullable<ChapterCandidate["pattern"]>[] = [
-	"chapter",
-	"numbered",
-	"ending",
-	"extra",
-	"book-title",
-];
-
 function normalizeText(text?: string) {
 	return text?.replace(/\s+/g, "").trim() ?? "";
 }
@@ -604,7 +596,10 @@ export function resolvePageChapter(
 	const linkIndex = Math.max(0, orderedUrls.indexOf(url));
 	const parsedPages = getParsedLinkPages(orderedUrls);
 	const parsedPageKey = parsedPages
-		.map((parsedPage) => `${parsedPage.linkIndex}:${parsedPage.page.lastModified.getTime()}`)
+		.map(
+			(parsedPage) =>
+				`${parsedPage.linkIndex}:${parsedPage.page.lastModified.getTime()}`,
+		)
 		.join(",");
 	const loadedLastLinkIndex = Math.max(
 		...parsedPages.map((parsedPage) => parsedPage.linkIndex),
@@ -680,7 +675,8 @@ function zhDigitToNumber(digit: string) {
 	const quot = ["万", "亿", "兆"];
 	let result = 0;
 
-	if (!digit.split("").find((i) => zh.includes(i) || unit.includes(i))) return -1;
+	if (!digit.split("").find((i) => zh.includes(i) || unit.includes(i)))
+		return -1;
 	digit = digit.replace("萬", "万").replace("億", "亿");
 
 	function getNumber(num: string) {

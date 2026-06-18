@@ -1,6 +1,6 @@
 import van, { type State } from "vanjs-core";
 import { IconExpandMore } from "../../../style/icon";
-import nameMap from "../style.module.scss";
+import nameMap from "../styles/style.module.scss";
 
 const { button, div, span } = van.tags;
 
@@ -18,16 +18,14 @@ export function CustomDropdown<T extends string>(
 	const open = van.state(false);
 	const root = div({
 		class: () =>
-			[
-				nameMap.customDropdown,
-				size === "sm" ? nameMap.customDropdownSm : "",
-			]
+			[nameMap.customDropdown, size === "sm" ? nameMap.customDropdownSm : ""]
 				.filter(Boolean)
 				.join(" "),
 	});
 
 	const selectedLabel = () =>
-		options.find((option) => option.value === currentValue.val)?.label ?? "Select...";
+		options.find((option) => option.value === currentValue.val)?.label ??
+		"Select...";
 
 	const close = () => {
 		open.val = false;

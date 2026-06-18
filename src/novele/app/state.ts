@@ -48,7 +48,9 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const textSizePreset = van.state<TextSizePreset>(initial.textSizePreset);
 	const advancedLineSpacing = van.state(initial.advancedLineSpacing);
 	const lineSpacingValue = van.state(initial.lineSpacingValue);
-	const lineSpacingPreset = van.state<LineSpacingPreset>(initial.lineSpacingPreset);
+	const lineSpacingPreset = van.state<LineSpacingPreset>(
+		initial.lineSpacingPreset,
+	);
 	const advancedReadingWidth = van.state(initial.advancedReadingWidth);
 	const readingWidthValue = van.state(initial.readingWidthValue);
 	const readingWidthPreset = van.state<ReadingWidthPreset>(
@@ -60,7 +62,9 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const darkPrimarySeed = van.state<Oklch>(initial.darkPrimarySeed);
 	const darkSurfaceSeed = van.state<Oklch>(initial.darkSurfaceSeed);
 	const advancedInterfaceDensity = van.state(initial.advancedInterfaceDensity);
-	const interfaceDensity = van.state<InterfaceDensity>(initial.interfaceDensity);
+	const interfaceDensity = van.state<InterfaceDensity>(
+		initial.interfaceDensity,
+	);
 	const interfaceScale = van.state(initial.interfaceScale);
 	const panelPosition = van.state<PanelPosition>(initial.panelPosition);
 	const systemPrefersDark = van.state<boolean>(

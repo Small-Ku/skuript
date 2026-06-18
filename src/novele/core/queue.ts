@@ -1,14 +1,13 @@
 import { JobQueue } from "../../util/job-queue";
 import { resolvePageChapter } from "./extract/chapters";
 import {
-	getCachedCommentBundle,
-	parseCommentPage,
 	type CommentBundle,
 	type CommentPostResult,
+	getCachedCommentBundle,
+	parseCommentPage,
 	postSiteComment,
 } from "./extract/comments";
 import type { Link } from "./extract/links";
-import type { CommentPageRef } from "./extract/storage";
 import {
 	getAdditionalPageUrls,
 	getPage,
@@ -20,6 +19,7 @@ import {
 	releasePageDom,
 	setAdditionalPageUrls,
 } from "./extract/pages";
+import type { CommentPageRef } from "./extract/storage";
 
 interface FetchContext {
 	kind: "page" | "comment" | "comment-post";
@@ -191,13 +191,8 @@ export async function queueSiteCommentPost(
 ): Promise<CommentPostResult> {
 	return fetchQueue.addJob(
 		() =>
-			postSiteComment(
-				refs,
-				author,
-				text,
-				postId,
-				replyId,
-				(input, init) => fetchWith429Retry(input, init),
+			postSiteComment(refs, author, text, postId, replyId, (input, init) =>
+				fetchWith429Retry(input, init),
 			),
 		{ kind: "comment-post", url: "comment-post", orderHint },
 	) as Promise<CommentPostResult>;

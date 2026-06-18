@@ -4,22 +4,27 @@ const { path, svg } = van.tags("http://www.w3.org/2000/svg");
 
 /* Material Symbols, some are compressed as functions with human observation: */
 
-export enum Direction {
-	Left = 0,
-	Right = 1,
-	Top = 2,
-	Bottom = 3,
-}
+type EnumValue<T extends Record<string, number>> = T[keyof T];
 
-export enum HorizonDir {
-	Left = 0,
-	Right = 1,
-}
+export const Direction = {
+	Left: 0,
+	Right: 1,
+	Top: 2,
+	Bottom: 3,
+} as const;
+export type Direction = EnumValue<typeof Direction>;
 
-export enum VerticalDir {
-	Top = 2,
-	Bottom = 3,
-}
+export const HorizonDir = {
+	Left: 0,
+	Right: 1,
+} as const;
+export type HorizonDir = EnumValue<typeof HorizonDir>;
+
+export const VerticalDir = {
+	Top: 2,
+	Bottom: 3,
+} as const;
+export type VerticalDir = EnumValue<typeof VerticalDir>;
 
 const _icon = (d: string, prop?: Record<string, PropValueOrDerived>) =>
 	svg(
@@ -59,11 +64,12 @@ top_panel_close    M480-460 320-300h320L480-460ZM200-120q-33 0-56.5-23.5T120-200
 top_panel_open     m480-300 160-160H320l160 160ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm560-520v-120H200v120h560Zm-560 80v360h560v-360H200Zm0-80v-120 120Z
 */
 
-export enum PanelState {
-	None = 0,
-	Open = 1,
-	Close = 2,
-}
+export const PanelState = {
+	None: 0,
+	Open: 1,
+	Close: 2,
+} as const;
+export type PanelState = EnumValue<typeof PanelState>;
 
 const innerWidth = 560;
 const innerBigHeight = 360;
@@ -210,7 +216,4 @@ export const IconClose = (prop?: Record<string, PropValueOrDerived>) =>
 	);
 
 export const IconExpandMore = (prop?: Record<string, PropValueOrDerived>) =>
-	_icon(
-		"M480-360 280-560l56-56 144 144 144-144 56 56-200 200Z",
-		prop,
-	);
+	_icon("M480-360 280-560l56-56 144 144 144-144 56 56-200 200Z", prop);

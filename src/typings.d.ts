@@ -27,9 +27,11 @@ declare module "*.scss" {
 // Ref: https://www.tampermonkey.net/documentation.php?locale=en#api
 declare function GM_addStyle(code: string): HTMLStyleElement;
 declare function GM_getValue<T>(key: string, defaultValue: T): T;
-declare function GM_getValues<T extends Record<string, any>>(values: T): T;
+declare function GM_getValues<T extends Record<string, unknown>>(values: T): T;
 declare function GM_setValue<T>(key: string, value: T): void;
-declare function GM_setValues<T extends Record<string, any>>(values: T): void;
+declare function GM_setValues<T extends Record<string, unknown>>(
+	values: T,
+): void;
 declare function GM_deleteValue(key: string): void;
 declare function GM_deleteValues(keys: string[]): void;
 declare function GM_listValues(): string[];

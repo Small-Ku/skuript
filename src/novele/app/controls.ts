@@ -8,7 +8,7 @@ import {
 } from "../../style/icon";
 import type { createReaderData } from "./reader-data";
 import type { createUiState } from "./state";
-import nameMap from "./style.module.scss";
+import nameMap from "./styles/style.module.scss";
 
 const { button, div, footer, header, span } = van.tags;
 
@@ -19,11 +19,7 @@ function activeClass(active: boolean, className: string) {
 	return active ? className : "";
 }
 
-export function TopBar(
-	ui: UiState,
-	data: ReaderData,
-	open: State<boolean>,
-) {
+export function TopBar(ui: UiState, data: ReaderData, open: State<boolean>) {
 	return header(
 		{
 			class: () =>
@@ -56,7 +52,10 @@ export function BottomControls(
 		ui.controlsVisible.val && !ui.activeOverlay.val && open.val;
 
 	van.derive(() => {
-		if (!data.currentCommentsAvailable.val && ui.activeOverlay.val === "comments") {
+		if (
+			!data.currentCommentsAvailable.val &&
+			ui.activeOverlay.val === "comments"
+		) {
 			ui.activeOverlay.val = null;
 		}
 	});

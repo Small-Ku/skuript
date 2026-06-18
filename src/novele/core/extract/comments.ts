@@ -38,7 +38,9 @@ function commentPageUrl(baseUrl: string, pageNumber: number) {
 }
 
 function getCurrentCommentPageNumber(url: string) {
-	return Number(new URL(url).pathname.match(/comment-page-(\d+)/)?.[1] ?? "") || 1;
+	return (
+		Number(new URL(url).pathname.match(/comment-page-(\d+)/)?.[1] ?? "") || 1
+	);
 }
 
 function getCurrentCommentPageNumberFromDoc(doc: Document) {
@@ -49,8 +51,8 @@ function getCurrentCommentPageNumberFromDoc(doc: Document) {
 }
 
 function getCommentPostId(doc: Document): string | undefined {
-	const likeId = doc.querySelector<HTMLElement>("#action-like[data-id]")?.dataset
-		.id;
+	const likeId = doc.querySelector<HTMLElement>("#action-like[data-id]")
+		?.dataset.id;
 	if (likeId) return likeId;
 	return doc.querySelector<HTMLInputElement>("input[name='comment_post_ID']")
 		?.value;
@@ -115,13 +117,17 @@ export function getCommentPageRefs(
 
 function extractTextLines(root: Element): string[] {
 	const textRoot = root.cloneNode(true) as Element;
-	textRoot.querySelectorAll(".comt-meta, .reply, script, style").forEach((item) => {
-		item.remove();
-	});
-	const paragraphs = Array.from(textRoot.querySelectorAll("p")).flatMap((item) => {
-		const text = item.textContent?.trim();
-		return text ? text.split(/\r?\n/).map((line) => line.trim()) : [];
-	});
+	textRoot
+		.querySelectorAll(".comt-meta, .reply, script, style")
+		.forEach((item) => {
+			item.remove();
+		});
+	const paragraphs = Array.from(textRoot.querySelectorAll("p")).flatMap(
+		(item) => {
+			const text = item.textContent?.trim();
+			return text ? text.split(/\r?\n/).map((line) => line.trim()) : [];
+		},
+	);
 	if (paragraphs.length) return paragraphs.filter(Boolean);
 	const text = textRoot.textContent?.trim();
 	return text ? [text] : [];
@@ -139,7 +145,8 @@ function parseZhenhunComments(doc: Document, ref: CommentPageRef): CommentPage {
 		const time =
 			Array.from(meta?.childNodes ?? [])
 				.find(
-					(node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+					(node) =>
+						node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
 				)
 				?.textContent?.trim() ?? "";
 		const parentId = item.parentElement?.classList.contains("children")
@@ -164,7 +171,10 @@ function parseZhenhunComments(doc: Document, ref: CommentPageRef): CommentPage {
 	};
 }
 
-export function parseCommentPage(doc: Document, ref: CommentPageRef): CommentPage {
+export function parseCommentPage(
+	doc: Document,
+	ref: CommentPageRef,
+): CommentPage {
 	let page: CommentPage;
 	switch (hostname) {
 		case "www.zhenhunxiaoshuo.com":
@@ -198,7 +208,10 @@ function isCloudflareChallengeResponse(response: Response): boolean {
 	);
 }
 
-function getErrorMessageFromPostResponse(response: Response, html: string): string {
+function getErrorMessageFromPostResponse(
+	response: Response,
+	html: string,
+): string {
 	const doc = new DOMParser().parseFromString(html, "text/html");
 	if (isCloudflareChallengeResponse(response)) {
 		return CLOUDFLARE_CHALLENGE_MESSAGE;
@@ -245,21 +258,15 @@ export async function postSiteComment(
 			params.append("comment_post_ID", postId);
 			params.append("comment_parent", replyId?.replace("comment-", "") ?? "");
 
-			const response = await fetcher(
-				ZHENHUN_COMMENT_POST_URL,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/x-www-form-urlencoded",
-					},
-					body: params.toString(),
+			const response = await fetcher(ZHENHUN_COMMENT_POST_URL, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
 				},
-			);
+				body: params.toString(),
+			});
 			const html = await response.text();
-			if (
-				response.url ===
-				ZHENHUN_COMMENT_POST_URL
-			) {
+			if (response.url === ZHENHUN_COMMENT_POST_URL) {
 				throw new Error(getErrorMessageFromPostResponse(response, html));
 			}
 

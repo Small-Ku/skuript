@@ -1,5 +1,5 @@
 import van, { type ChildDom, type PropValueOrDerived } from "vanjs-core";
-import nameMap from "../style.module.scss";
+import nameMap from "../styles/style.module.scss";
 
 const { label, input, span } = van.tags;
 

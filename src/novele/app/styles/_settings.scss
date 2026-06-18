@@ -1,4 +1,4 @@
-@use "../../style/easing-duation" as *;
+@use "../../../style/easing-duation" as *;
 
 @mixin slider-thumb($include-margin-top: false) {
 	width: 16px;

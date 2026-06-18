@@ -1,6 +1,6 @@
 import van from "vanjs-core";
 import { FabApp } from "./app/main";
-import { code } from "./app/style.module.scss";
+import { code } from "./app/styles/style.module.scss";
 
 const { div, style } = van.tags;
 

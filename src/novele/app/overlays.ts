@@ -1,11 +1,16 @@
-import van, { type ChildDom, type State } from "vanjs-core";
+import van, {
+	type ChildDom,
+	type Props,
+	type PropsWithKnownKeys,
+	type State,
+} from "vanjs-core";
 import { IconClose, IconTune } from "../../style/icon";
-import { CustomDropdown } from "./component/custom-dropdown";
-import { getMaxChroma, oklchToRgb, rgbToHex } from "./color-math";
 import { ZHENHUN_COMMENT_POST_URL } from "../core/extract/comments";
+import { CustomDropdown } from "./components/custom-dropdown";
 import type { createReaderData } from "./reader-data";
 import type { createUiState } from "./state";
-import nameMap from "./style.module.scss";
+import nameMap from "./styles/style.module.scss";
+import { getMaxChroma, oklchToRgb, rgbToHex } from "./theme/color-math";
 import type {
 	InterfaceDensity,
 	LineSpacingPreset,
@@ -17,6 +22,14 @@ import type {
 	ThemeMode,
 	Typeface,
 } from "./types";
+import {
+	COMPACT_REGULAR_RELAXED_VALUES,
+	INTERFACE_DENSITY_VALUES,
+	PANEL_POSITION_VALUES,
+	READING_WIDTH_PRESET_VALUES,
+	THEME_MODE_VALUES,
+	TYPEFACE_VALUES,
+} from "./types";
 
 const { aside, button, div, h2, iframe, input, nav, p, span, textarea } =
 	van.tags;
@@ -24,54 +37,68 @@ const { aside, button, div, h2, iframe, input, nav, p, span, textarea } =
 type UiState = ReturnType<typeof createUiState>;
 type ReaderData = ReturnType<typeof createReaderData>;
 
+const [typefaceReader, typefaceUi, typefaceLiterata, typefaceCustom] =
+	TYPEFACE_VALUES;
+const [compactPreset, regularPreset, relaxedPreset] =
+	COMPACT_REGULAR_RELAXED_VALUES;
+const [narrowWidth, regularWidth, wideWidth] = READING_WIDTH_PRESET_VALUES;
+const [lightMode, autoMode, darkMode] = THEME_MODE_VALUES;
+const [compactDensity, comfortableDensity, spaciousDensity] =
+	INTERFACE_DENSITY_VALUES;
+const [leftPanel, rightPanel] = PANEL_POSITION_VALUES;
+
 const typefaceOptions = [
 	{
 		label: "Newsreader",
-		value: "fontReader" as Typeface,
+		value: typefaceReader as Typeface,
 		className: nameMap.fontReader,
 	},
-	{ label: "Satoshi", value: "fontUi" as Typeface, className: nameMap.fontUi },
+	{
+		label: "Satoshi",
+		value: typefaceUi as Typeface,
+		className: nameMap.fontUi,
+	},
 	{
 		label: "Literata",
-		value: "fontLiterata" as Typeface,
+		value: typefaceLiterata as Typeface,
 		className: nameMap.fontLiterata,
 	},
-	{ label: "Custom...", value: "custom" as Typeface },
+	{ label: "Custom...", value: typefaceCustom as Typeface },
 ];
 
 const textSizeOptions = [
-	{ label: "Compact", value: "compact" as TextSizePreset },
-	{ label: "Regular", value: "regular" as TextSizePreset },
-	{ label: "Relaxed", value: "relaxed" as TextSizePreset },
+	{ label: "Compact", value: compactPreset as TextSizePreset },
+	{ label: "Regular", value: regularPreset as TextSizePreset },
+	{ label: "Relaxed", value: relaxedPreset as TextSizePreset },
 ];
 
 const lineSpacingOptions = [
-	{ label: "Compact", value: "compact" as LineSpacingPreset },
-	{ label: "Regular", value: "regular" as LineSpacingPreset },
-	{ label: "Relaxed", value: "relaxed" as LineSpacingPreset },
+	{ label: "Compact", value: compactPreset as LineSpacingPreset },
+	{ label: "Regular", value: regularPreset as LineSpacingPreset },
+	{ label: "Relaxed", value: relaxedPreset as LineSpacingPreset },
 ];
 
 const readingWidthOptions = [
-	{ label: "Narrow", value: "narrow" as ReadingWidthPreset },
-	{ label: "Regular", value: "regular" as ReadingWidthPreset },
-	{ label: "Wide", value: "wide" as ReadingWidthPreset },
+	{ label: "Narrow", value: narrowWidth as ReadingWidthPreset },
+	{ label: "Regular", value: regularWidth as ReadingWidthPreset },
+	{ label: "Wide", value: wideWidth as ReadingWidthPreset },
 ];
 
 const densityOptions = [
-	{ label: "Compact", value: "compact" as InterfaceDensity },
-	{ label: "Comfortable", value: "comfortable" as InterfaceDensity },
-	{ label: "Spacious", value: "spacious" as InterfaceDensity },
+	{ label: "Compact", value: compactDensity as InterfaceDensity },
+	{ label: "Comfortable", value: comfortableDensity as InterfaceDensity },
+	{ label: "Spacious", value: spaciousDensity as InterfaceDensity },
 ];
 
 const panelOptions = [
-	{ label: "Left", value: "left" as PanelPosition },
-	{ label: "Right", value: "right" as PanelPosition },
+	{ label: "Left", value: leftPanel as PanelPosition },
+	{ label: "Right", value: rightPanel as PanelPosition },
 ];
 
 const themeModeOptions = [
-	{ label: "Light", value: "light" as ThemeMode },
-	{ label: "Auto", value: "auto" as ThemeMode },
-	{ label: "Dark", value: "dark" as ThemeMode },
+	{ label: "Light", value: lightMode as ThemeMode },
+	{ label: "Auto", value: autoMode as ThemeMode },
+	{ label: "Dark", value: darkMode as ThemeMode },
 ];
 
 function drawerClass(
@@ -117,7 +144,9 @@ function segmentedButtonGroup<T extends string>(
 				{
 					class: () =>
 						[
-							currentValue.val === entry.value ? nameMap.active : nameMap.inactive,
+							currentValue.val === entry.value
+								? nameMap.active
+								: nameMap.inactive,
 							entry.className ?? "",
 						]
 							.filter(Boolean)
@@ -173,7 +202,7 @@ function sliderField(
 	labelText: string,
 	enabled: State<boolean>,
 	valueText: () => string,
-	inputProps: Record<string, any>,
+	inputProps: Props & PropsWithKnownKeys<HTMLInputElement>,
 	presetGroup: ChildDom,
 ) {
 	return div(
@@ -202,8 +231,14 @@ function oklchPicker(seed: State<Oklch>, labelText: string) {
 
 	const updateFromPointer = (event: PointerEvent, element: HTMLDivElement) => {
 		const rect = element.getBoundingClientRect();
-		const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-		const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+		const x = Math.max(
+			0,
+			Math.min(1, (event.clientX - rect.left) / rect.width),
+		);
+		const y = Math.max(
+			0,
+			Math.min(1, (event.clientY - rect.top) / rect.height),
+		);
 		const hue = x * 360;
 		const maxChroma = chromaForHue(hue);
 		seed.val = {
@@ -220,34 +255,35 @@ function oklchPicker(seed: State<Oklch>, labelText: string) {
 			span(labelText),
 			span(() => `H: ${Math.round(seed.val.h)}° C: ${seed.val.c.toFixed(3)}`),
 		),
-		div({
-			class: nameMap.pickerSurface,
-			style: () =>
-				`background:linear-gradient(to right, ${[
-					0, 60, 120, 180, 240, 300, 360,
-				]
-					.map((hue) =>
-						colorFor({ l: fixedLightness, c: chromaForHue(hue), h: hue }),
-					)
-					.join(",")});`,
-			onpointerdown: (event: PointerEvent) => {
-				const target = event.currentTarget as HTMLDivElement;
-				updateFromPointer(event, target);
-				target.setPointerCapture(event.pointerId);
-			},
-			onpointermove: (event: PointerEvent) => {
-				const target = event.currentTarget as HTMLDivElement;
-				if (target.hasPointerCapture(event.pointerId)) {
+		div(
+			{
+				class: nameMap.pickerSurface,
+				style: () =>
+					`background:linear-gradient(to right, ${[
+						0, 60, 120, 180, 240, 300, 360,
+					]
+						.map((hue) =>
+							colorFor({ l: fixedLightness, c: chromaForHue(hue), h: hue }),
+						)
+						.join(",")});`,
+				onpointerdown: (event: PointerEvent) => {
+					const target = event.currentTarget as HTMLDivElement;
 					updateFromPointer(event, target);
-				}
+					target.setPointerCapture(event.pointerId);
+				},
+				onpointermove: (event: PointerEvent) => {
+					const target = event.currentTarget as HTMLDivElement;
+					if (target.hasPointerCapture(event.pointerId)) {
+						updateFromPointer(event, target);
+					}
+				},
+				onpointerup: (event: PointerEvent) => {
+					const target = event.currentTarget as HTMLDivElement;
+					if (target.hasPointerCapture(event.pointerId)) {
+						target.releasePointerCapture(event.pointerId);
+					}
+				},
 			},
-			onpointerup: (event: PointerEvent) => {
-				const target = event.currentTarget as HTMLDivElement;
-				if (target.hasPointerCapture(event.pointerId)) {
-					target.releasePointerCapture(event.pointerId);
-				}
-			},
-		},
 			div({ class: nameMap.pickerOverlay }),
 			div({
 				class: nameMap.pickerThumb,
@@ -363,8 +399,14 @@ function interfaceTab(ui: UiState) {
 			},
 			segmentedButtonGroup(ui.interfaceDensity, densityOptions),
 		),
-		settingGroup("UI Direction", segmentedButtonGroup(ui.panelPosition, panelOptions)),
-		settingGroup("Theme Mode", segmentedButtonGroup(ui.themeMode, themeModeOptions)),
+		settingGroup(
+			"UI Direction",
+			segmentedButtonGroup(ui.panelPosition, panelOptions),
+		),
+		settingGroup(
+			"Theme Mode",
+			segmentedButtonGroup(ui.themeMode, themeModeOptions),
+		),
 		div(
 			{ class: nameMap.settingsGroup },
 			span({ class: nameMap.label }, "Color Pipeline"),
@@ -411,7 +453,8 @@ function settingsPanel(ui: UiState) {
 function commentStatusText(data: ReaderData) {
 	const state = data.currentComments.val;
 	if (state.loading) return `Loading ${state.refs.length} comment page(s)...`;
-	if (!state.supported) return "No site comment section was found for this page.";
+	if (!state.supported)
+		return "No site comment section was found for this page.";
 	if (!state.items.length) return "No comments yet.";
 	return "";
 }
@@ -437,7 +480,10 @@ export function OverlayPanels(
 		ui.activeOverlay.val = null;
 	};
 	const chapterNavRoot = nav({ class: nameMap.chapterNav });
-	const commentsRoot = div({ class: nameMap.commentsList, onscroll: onInteraction });
+	const commentsRoot = div({
+		class: nameMap.commentsList,
+		onscroll: onInteraction,
+	});
 	const submitComment = async () => {
 		const success = await data.submitCurrentComment(
 			ui.commentAuthor.val,
@@ -447,7 +493,8 @@ export function OverlayPanels(
 	};
 
 	van.derive(() => {
-		const currentUrl = data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
+		const currentUrl =
+			data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
 		chapterNavRoot.replaceChildren(
 			...data.chapterEntries.val.map((entry) =>
 				button(

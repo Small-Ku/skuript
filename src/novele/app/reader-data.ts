@@ -1,4 +1,5 @@
 import van from "vanjs-core";
+import { CLOUDFLARE_CHALLENGE_MESSAGE } from "../core/extract/comments";
 import { type Link, resolveLinks, subscribeLinks } from "../core/extract/links";
 import { findPage } from "../core/extract/pages";
 import type { CommentItem, CommentPageRef } from "../core/extract/storage";
@@ -8,9 +9,6 @@ import {
 	queueCommentFetch,
 	queueSiteCommentPost,
 } from "../core/queue";
-import {
-	CLOUDFLARE_CHALLENGE_MESSAGE,
-} from "../core/extract/comments";
 
 type ChapterFetchState = {
 	loading: boolean;
@@ -130,7 +128,8 @@ export function createReaderData() {
 			needsCloudflareVerification: false,
 		};
 		void queueCommentFetch(refs, orderHint, (_ref, error, bundle) => {
-			if (error) errors.push(error instanceof Error ? error.message : `${error}`);
+			if (error)
+				errors.push(error instanceof Error ? error.message : `${error}`);
 			if (!bundle || key !== commentRequestKey) return;
 			currentComments.val = {
 				...currentComments.val,
@@ -219,7 +218,8 @@ export function createReaderData() {
 		const currentIndex = nav.index.val;
 		for (
 			let index = Math.max(0, currentIndex - COMMENT_PREFETCH_RADIUS);
-			index <= Math.min(nextLinks.length - 1, currentIndex + COMMENT_PREFETCH_RADIUS);
+			index <=
+			Math.min(nextLinks.length - 1, currentIndex + COMMENT_PREFETCH_RADIUS);
 			index += 1
 		) {
 			const chapter = getResolvedChapter(nextLinks[index]);

@@ -146,17 +146,14 @@ function generateHeaderText(
 ): string {
 	if (buildSuffix) header["@version"] += `.${buildSuffix}`;
 
-	const longestHeaderChar = Math.max(
-		...Object.keys(header).map((k) => k.length),
-	);
 	const HEADER_BEGIN = "// ==UserScript==\n";
-	const HEADER_END = "// ==/UserScript==\n\n";
+	const HEADER_END = "// ==/UserScript==\n";
 	let text = HEADER_BEGIN;
 
 	for (const key of MINIMAL_USER_SCRIPT_HEADER_ITEMS) {
 		const value = header[key];
 		for (const row of typeof value === "string" ? [value] : value) {
-			text += `// ${key.padEnd(longestHeaderChar)}  ${row}\n`;
+			text += `// ${key} ${row}\n`;
 		}
 	}
 
@@ -167,7 +164,7 @@ function generateHeaderText(
 		}
 		const value = header[key];
 		for (const row of typeof value === "string" ? [value] : value) {
-			text += `// ${key.padEnd(longestHeaderChar)}  ${row}\n`;
+			text += `// ${key} ${row}\n`;
 		}
 	}
 	text += HEADER_END;
@@ -194,7 +191,13 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 		entrypoints: [entrypoint],
 		outdir: "./dist",
 		naming: `${scriptName}.user.js`,
-		minify: !dev,
+		minify: dev
+			? false
+			: {
+					whitespace: true,
+					syntax: true,
+					identifiers: true,
+				},
 		sourcemap: dev ? "inline" : undefined,
 		plugins: [
 			styleLoader({

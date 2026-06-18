@@ -9,6 +9,14 @@ import type {
 	ThemeMode,
 	Typeface,
 } from "./types";
+import {
+	COMPACT_REGULAR_RELAXED_VALUES,
+	INTERFACE_DENSITY_VALUES,
+	PANEL_POSITION_VALUES,
+	READING_WIDTH_PRESET_VALUES,
+	THEME_MODE_VALUES,
+	TYPEFACE_VALUES,
+} from "./types";
 
 export type UiPreferences = {
 	typeface: Typeface;
@@ -49,36 +57,24 @@ export type PersistedUiState = {
 	[K in keyof UiPreferences]: State<UiPreferences[K]>;
 };
 
-const typefaceSet = new Set<Typeface>([
-	"fontReader",
-	"fontUi",
-	"fontLiterata",
-	"custom",
-]);
-const textSizePresetSet = new Set<TextSizePreset>(["compact", "regular", "relaxed"]);
-const lineSpacingPresetSet = new Set<LineSpacingPreset>([
-	"compact",
-	"regular",
-	"relaxed",
-]);
-const readingWidthPresetSet = new Set<ReadingWidthPreset>([
-	"narrow",
-	"regular",
-	"wide",
-]);
-const themeModeSet = new Set<ThemeMode>(["auto", "light", "dark"]);
-const interfaceDensitySet = new Set<InterfaceDensity>([
-	"compact",
-	"comfortable",
-	"spacious",
-]);
-const panelPositionSet = new Set<PanelPosition>(["left", "right"]);
+const typefaceSet = new Set<Typeface>(TYPEFACE_VALUES);
+const compactRegularRelaxedSet = new Set(COMPACT_REGULAR_RELAXED_VALUES);
+const readingWidthPresetSet = new Set<ReadingWidthPreset>(
+	READING_WIDTH_PRESET_VALUES,
+);
+const themeModeSet = new Set<ThemeMode>(THEME_MODE_VALUES);
+const interfaceDensitySet = new Set<InterfaceDensity>(INTERFACE_DENSITY_VALUES);
+const panelPositionSet = new Set<PanelPosition>(PANEL_POSITION_VALUES);
 
 function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
 }
 
-function parseEnum<T extends string>(value: unknown, values: Set<T>, fallback: T): T {
+function parseEnum<T extends string>(
+	value: unknown,
+	values: Set<T>,
+	fallback: T,
+): T {
 	return typeof value === "string" && values.has(value as T)
 		? (value as T)
 		: fallback;
@@ -92,7 +88,12 @@ function parseBoolean(value: unknown, fallback: boolean) {
 	return typeof value === "boolean" ? value : fallback;
 }
 
-function parseNumber(value: unknown, fallback: number, min: number, max: number) {
+function parseNumber(
+	value: unknown,
+	fallback: number,
+	min: number,
+	max: number,
+) {
 	return typeof value === "number" && Number.isFinite(value)
 		? clamp(value, min, max)
 		: fallback;
@@ -135,7 +136,7 @@ const preferenceSchema = {
 		storageKey: "novele:pref:textSizePreset",
 		defaultValue: "regular" as TextSizePreset,
 		parse: (value) =>
-			parseEnum(value, textSizePresetSet, "regular" as TextSizePreset),
+			parseEnum(value, compactRegularRelaxedSet, "regular" as TextSizePreset),
 	},
 	advancedLineSpacing: {
 		storageKey: "novele:pref:advancedLineSpacing",
@@ -152,7 +153,11 @@ const preferenceSchema = {
 		storageKey: "novele:pref:lineSpacingPreset",
 		defaultValue: "regular" as LineSpacingPreset,
 		parse: (value) =>
-			parseEnum(value, lineSpacingPresetSet, "regular" as LineSpacingPreset),
+			parseEnum(
+				value,
+				compactRegularRelaxedSet,
+				"regular" as LineSpacingPreset,
+			),
 	},
 	advancedReadingWidth: {
 		storageKey: "novele:pref:advancedReadingWidth",
@@ -220,7 +225,8 @@ const preferenceSchema = {
 	panelPosition: {
 		storageKey: "novele:pref:panelPosition",
 		defaultValue: "right" as PanelPosition,
-		parse: (value) => parseEnum(value, panelPositionSet, "right" as PanelPosition),
+		parse: (value) =>
+			parseEnum(value, panelPositionSet, "right" as PanelPosition),
 	},
 	commentAuthor: {
 		storageKey: "novele:pref:commentAuthor",
@@ -230,9 +236,13 @@ const preferenceSchema = {
 	},
 } satisfies PreferenceSchema;
 
-const preferenceKeys = Object.keys(preferenceSchema) as Array<keyof UiPreferences>;
+const preferenceKeys = Object.keys(preferenceSchema) as Array<
+	keyof UiPreferences
+>;
 
-function getPreferenceSpec<K extends keyof UiPreferences>(key: K): PreferenceSpec<K> {
+function getPreferenceSpec<K extends keyof UiPreferences>(
+	key: K,
+): PreferenceSpec<K> {
 	return preferenceSchema[key] as PreferenceSpec<K>;
 }
 

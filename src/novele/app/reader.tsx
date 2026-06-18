@@ -5,7 +5,7 @@ import { BottomControls, TopBar } from "./controls";
 import { OverlayBackdrop, OverlayPanels } from "./overlays";
 import { createReaderData } from "./reader-data";
 import type { UiState } from "./state";
-import nameMap from "./style.module.scss";
+import nameMap from "./styles/style.module.scss";
 
 const { div, h1, main, p } = van.tags;
 
@@ -178,10 +178,9 @@ export function Reader(open: State<boolean>, ui: UiState) {
 		div(
 			{
 				class: () =>
-					[
-						nameMap.appContentWrapper,
-						open.val ? nameMap.appExpanded : "",
-					].join(" "),
+					[nameMap.appContentWrapper, open.val ? nameMap.appExpanded : ""].join(
+						" ",
+					),
 				style: () =>
 					`transform-origin:${ui.panelPosition.val === "left" ? "left" : "right"} center`,
 			},
