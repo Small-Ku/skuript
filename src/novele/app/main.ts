@@ -1,6 +1,6 @@
 import van from "vanjs-core";
 import { IconExitToApp, IconReadMore } from "../../style/icon";
-import { bindUiPreferences, loadUiPreferences } from "./config";
+import { bindUiPreferences, loadUiPreferences } from "../core/preferences";
 import { Reader } from "./reader";
 import { createUiState } from "./state";
 import nameMap from "./styles/style.module.scss";

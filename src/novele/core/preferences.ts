@@ -8,7 +8,7 @@ import type {
 	TextSizePreset,
 	ThemeMode,
 	Typeface,
-} from "./types";
+} from "../app/types";
 import {
 	COMPACT_REGULAR_RELAXED_VALUES,
 	INTERFACE_DENSITY_VALUES,
@@ -16,7 +16,7 @@ import {
 	READING_WIDTH_PRESET_VALUES,
 	THEME_MODE_VALUES,
 	TYPEFACE_VALUES,
-} from "./types";
+} from "../app/types";
 
 export type UiPreferences = {
 	typeface: Typeface;
