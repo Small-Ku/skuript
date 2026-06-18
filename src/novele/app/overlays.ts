@@ -509,6 +509,7 @@ export function OverlayPanels(
 	});
 	let pendingCommentRefs: CommentPageRef[] | null = null;
 	let commentPostTimeoutId: number | null = null;
+	let pendingScrollCommentId: string | null = null;
 	const authorInputElement = input({
 		class: nameMap.textInput,
 		type: "text",
@@ -591,6 +592,7 @@ export function OverlayPanels(
 			);
 			finalizeCommentPost();
 			data.completeCurrentCommentSubmission(bundle);
+			pendingScrollCommentId = bundle.commentId ?? null;
 			ui.commentDraft.val = "";
 			resetCommentFrame();
 		} catch (error) {
@@ -706,7 +708,10 @@ export function OverlayPanels(
 				: []),
 			...state.items.map((comment) =>
 				div(
-					{ class: nameMap.commentItem },
+					{
+						class: nameMap.commentItem,
+						id: comment.id || undefined,
+					},
 					div(
 						{ class: nameMap.commentMeta },
 						span({ class: nameMap.user }, comment.author),
@@ -721,6 +726,18 @@ export function OverlayPanels(
 				),
 			),
 		);
+		if (pendingScrollCommentId) {
+			const target = commentsRoot.querySelector<HTMLElement>(
+				pendingScrollCommentId,
+			);
+			if (target) {
+				target.scrollIntoView({
+					behavior: "smooth",
+					block: "center",
+				});
+				pendingScrollCommentId = null;
+			}
+		}
 	});
 
 	return [
