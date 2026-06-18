@@ -15,7 +15,18 @@
 		"https://www.256wx.org/*",
 		"https://www.zhenhunxiaoshuo.com/*"
 	],
-	"grant": ["GM_addStyle"],
+	"grant": [
+		"GM_addStyle",
+		"GM_getValue",
+		"GM_getValues",
+		"GM_setValue",
+		"GM_setValues",
+		"GM_deleteValue",
+		"GM_deleteValues",
+		"GM_listValues",
+		"GM_addValueChangeListener",
+		"GM_removeValueChangeListener"
+	],
 	"author": "Small_Ku",
 	"license": "MIT"
 }

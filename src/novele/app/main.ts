@@ -1,5 +1,6 @@
 import van from "vanjs-core";
 import { IconExitToApp, IconReadMore } from "../../style/icon";
+import { bindUiPreferences, loadUiPreferences } from "./config";
 import { Reader } from "./reader";
 import { createUiState } from "./state";
 import { generateThemeVars } from "./theme";
@@ -9,7 +10,7 @@ const { button, div, span } = van.tags;
 
 export const FabApp = () => {
 	const open = van.state(false);
-	const ui = createUiState();
+	const ui = createUiState(loadUiPreferences());
 	const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 	const app = div({
 		class: () =>
@@ -51,6 +52,7 @@ export const FabApp = () => {
 		ui.systemPrefersDark.val = mediaQuery.matches;
 	};
 	mediaQuery.addEventListener("change", updateSystemTheme);
+	bindUiPreferences(ui);
 
 	van.derive(() => {
 		if (open.val) {

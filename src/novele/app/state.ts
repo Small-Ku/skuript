@@ -1,4 +1,5 @@
 import van from "vanjs-core";
+import { defaultUiPreferences, type UiPreferences } from "./config";
 import type {
 	InterfaceDensity,
 	LineSpacingPreset,
@@ -36,35 +37,37 @@ export const siteCommentConfigs: SiteCommentConfig[] = [
 	},
 ];
 
-export function createUiState() {
+export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const controlsVisible = van.state(true);
 	const activeOverlay = van.state<OverlayName | null>(null);
 	const settingsTab = van.state<SettingsTab>("typography");
-	const typeface = van.state<Typeface>("fontReader");
-	const customTypeface = van.state("Arial");
-	const advancedTextSize = van.state(true);
-	const textSizeValue = van.state(19);
-	const textSizePreset = van.state<TextSizePreset>("regular");
-	const advancedLineSpacing = van.state(true);
-	const lineSpacingValue = van.state(1.6);
-	const lineSpacingPreset = van.state<LineSpacingPreset>("regular");
-	const advancedReadingWidth = van.state(true);
-	const readingWidthValue = van.state(42);
-	const readingWidthPreset = van.state<ReadingWidthPreset>("regular");
-	const themeMode = van.state<ThemeMode>("dark");
-	const lightPrimarySeed = van.state<Oklch>({ l: 0.55, c: 0.25, h: 230 });
-	const lightSurfaceSeed = van.state<Oklch>({ l: 0.95, c: 0.02, h: 230 });
-	const darkPrimarySeed = van.state<Oklch>({ l: 0.65, c: 0.286, h: 203 });
-	const darkSurfaceSeed = van.state<Oklch>({ l: 0.65, c: 0.337, h: 66 });
-	const advancedInterfaceDensity = van.state(false);
-	const interfaceDensity = van.state<InterfaceDensity>("comfortable");
-	const interfaceScale = van.state(1);
-	const panelPosition = van.state<PanelPosition>("right");
+	const typeface = van.state<Typeface>(initial.typeface);
+	const customTypeface = van.state(initial.customTypeface);
+	const advancedTextSize = van.state(initial.advancedTextSize);
+	const textSizeValue = van.state(initial.textSizeValue);
+	const textSizePreset = van.state<TextSizePreset>(initial.textSizePreset);
+	const advancedLineSpacing = van.state(initial.advancedLineSpacing);
+	const lineSpacingValue = van.state(initial.lineSpacingValue);
+	const lineSpacingPreset = van.state<LineSpacingPreset>(initial.lineSpacingPreset);
+	const advancedReadingWidth = van.state(initial.advancedReadingWidth);
+	const readingWidthValue = van.state(initial.readingWidthValue);
+	const readingWidthPreset = van.state<ReadingWidthPreset>(
+		initial.readingWidthPreset,
+	);
+	const themeMode = van.state<ThemeMode>(initial.themeMode);
+	const lightPrimarySeed = van.state<Oklch>(initial.lightPrimarySeed);
+	const lightSurfaceSeed = van.state<Oklch>(initial.lightSurfaceSeed);
+	const darkPrimarySeed = van.state<Oklch>(initial.darkPrimarySeed);
+	const darkSurfaceSeed = van.state<Oklch>(initial.darkSurfaceSeed);
+	const advancedInterfaceDensity = van.state(initial.advancedInterfaceDensity);
+	const interfaceDensity = van.state<InterfaceDensity>(initial.interfaceDensity);
+	const interfaceScale = van.state(initial.interfaceScale);
+	const panelPosition = van.state<PanelPosition>(initial.panelPosition);
 	const systemPrefersDark = van.state<boolean>(
 		window.matchMedia("(prefers-color-scheme: dark)").matches,
 	);
 	const activeSiteConfigId = van.state(siteCommentConfigs[2].id);
-	const commentAuthor = van.state("匿名");
+	const commentAuthor = van.state(initial.commentAuthor);
 	const commentDraft = van.state("");
 
 	const effectiveTheme = van.derive<Exclude<ThemeMode, "auto">>(() =>
