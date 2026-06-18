@@ -7,8 +7,8 @@ import {
 	writeChapterScrollRecord,
 } from "../core/scroll";
 import { BottomControls, TopBar } from "./controls";
-import type { NavigationMode } from "./reader-data";
 import { OverlayBackdrop, OverlayPanels } from "./overlays";
+import type { NavigationMode } from "./reader-data";
 import { createReaderData } from "./reader-data";
 import type { UiState } from "./state";
 import nameMap from "./styles/style.module.scss";
@@ -127,12 +127,17 @@ export function Reader(open: State<boolean>, ui: UiState) {
 	};
 
 	const currentChapterUrl = van.derive(() => {
-		const chapterUrl = data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
+		const chapterUrl =
+			data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
 		return chapterUrl ? normalizeChapterUrl(chapterUrl) : undefined;
 	});
 
 	const persistCurrentScroll = (chapterUrl = currentChapterUrl.val) => {
-		if (suppressScrollPersistence || !chapterUrl || !readerSurface.isConnected) {
+		if (
+			suppressScrollPersistence ||
+			!chapterUrl ||
+			!readerSurface.isConnected
+		) {
 			return;
 		}
 		const maxScrollTop = Math.max(

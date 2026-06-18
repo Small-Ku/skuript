@@ -32,7 +32,9 @@ export const canUseCurrentDocument = (() => {
 	switch (hostname) {
 		case "www.zhenhunxiaoshuo.com":
 			return (url: string): boolean => {
-				const currentCommentPageElm = document.querySelector(".page-numbers.current");
+				const currentCommentPageElm = document.querySelector(
+					".page-numbers.current",
+				);
 				if (!currentCommentPageElm) return url === window.location.href;
 				const page = Number(currentCommentPageElm.textContent?.trim());
 				return (Number.isFinite(page) ? page : 1) === 1;

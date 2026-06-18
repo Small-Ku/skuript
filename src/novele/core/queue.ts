@@ -1,8 +1,4 @@
 import { JobQueue } from "../../util/job-queue";
-import {
-	canUseCurrentDocument,
-	normalizeFetchUrl,
-} from "./extract/hostname-map";
 import { resolvePageChapter } from "./extract/chapters";
 import {
 	type CommentBundle,
@@ -11,6 +7,10 @@ import {
 	parseCommentPage,
 	postSiteComment,
 } from "./extract/comments";
+import {
+	canUseCurrentDocument,
+	normalizeFetchUrl,
+} from "./extract/hostname-map";
 import type { Link } from "./extract/links";
 import {
 	getAdditionalPageUrls,
@@ -76,9 +76,13 @@ async function fetchWith429Retry(
 	}
 }
 
-async function fetchPageText(url: string, bypassCache = false): Promise<string> {
+async function fetchPageText(
+	url: string,
+	bypassCache = false,
+): Promise<string> {
 	const fetchUrl = normalizeFetchUrl(url);
-	if (!bypassCache && fetchUrl === window.location.href) return document.documentElement.outerHTML;
+	if (!bypassCache && fetchUrl === window.location.href)
+		return document.documentElement.outerHTML;
 	if (!bypassCache) {
 		const storedPage = peekPage(url);
 		if (storedPage?.raw) {

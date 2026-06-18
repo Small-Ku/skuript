@@ -1,8 +1,5 @@
 import van from "vanjs-core";
-import {
-	defaultUiPreferences,
-	type UiPreferences,
-} from "../core/preferences";
+import { defaultUiPreferences, type UiPreferences } from "../core/preferences";
 import type {
 	InterfaceDensity,
 	LineSpacingPreset,
