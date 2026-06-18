@@ -209,19 +209,39 @@
 		gap: 0.5em;
 	}
 
+	.commentChallengeFrame {
+		width: 100%;
+		height: 18em;
+		border: 1px solid var(--color-border-glass);
+		border-radius: 1em;
+		background-color: var(--color-input-surface);
+	}
+
+	.commentError {
+		padding: 0.75em 1em;
+		border: 1px solid var(--color-border-glass);
+		border-radius: 0.75em;
+		color: var(--color-primary);
+		background-color: var(--color-input-surface);
+		font-size: 0.875em;
+		line-height: 1.4;
+	}
+
 	.extraInputWrapper,
 	.inputWrapper {
 		position: relative;
 		display: flex;
 		align-items: center;
 
-		input {
+		input,
+		textarea {
 			width: 100%;
 			padding: 0.75em 1.5em;
 			border: 1px solid var(--color-border-glass);
 			border-radius: 999px;
 			background-color: var(--color-input-surface);
 			color: var(--color-text-main);
+			font: inherit;
 			transition: border-color $duration-short4 $easing-standard;
 
 			&:focus {
@@ -237,6 +257,14 @@
 				opacity: 0.65;
 			}
 		}
+
+		textarea {
+			min-height: 6em;
+			padding-right: 6em;
+			border-radius: 1em;
+			line-height: 1.5;
+			resize: vertical;
+		}
 	}
 
 	.extraInputWrapper {
@@ -251,6 +279,7 @@
 		button {
 			position: absolute;
 			right: 0.5em;
+			bottom: 0.5em;
 			padding: 0.5em 1em;
 			border-radius: 999px;
 			font-size: 0.75em;

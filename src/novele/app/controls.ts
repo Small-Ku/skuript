@@ -55,6 +55,12 @@ export function BottomControls(
 	const isVisible = () =>
 		ui.controlsVisible.val && !ui.activeOverlay.val && open.val;
 
+	van.derive(() => {
+		if (!data.currentCommentsAvailable.val && ui.activeOverlay.val === "comments") {
+			ui.activeOverlay.val = null;
+		}
+	});
+
 	const chapterButton = button(
 		{
 			class: () =>
@@ -119,7 +125,7 @@ export function BottomControls(
 		div(
 			{ class: `${nameMap.glass} ${nameMap.glassNav}` },
 			chapterButton,
-			commentButton,
+			() => (data.currentCommentsAvailable.val ? commentButton : ""),
 			settingsButton,
 		),
 		div(

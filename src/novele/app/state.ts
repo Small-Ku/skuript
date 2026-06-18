@@ -64,6 +64,7 @@ export function createUiState() {
 		window.matchMedia("(prefers-color-scheme: dark)").matches,
 	);
 	const activeSiteConfigId = van.state(siteCommentConfigs[2].id);
+	const commentAuthor = van.state("匿名");
 	const commentDraft = van.state("");
 
 	const effectiveTheme = van.derive<Exclude<ThemeMode, "auto">>(() =>
@@ -101,6 +102,7 @@ export function createUiState() {
 		systemPrefersDark,
 		effectiveTheme,
 		activeSiteConfigId,
+		commentAuthor,
 		commentDraft,
 	};
 }

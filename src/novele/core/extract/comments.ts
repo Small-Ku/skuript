@@ -14,6 +14,15 @@ export type CommentBundle = {
 	supported: boolean;
 };
 
+export type CommentPostResult = CommentBundle & {
+	commentId?: string;
+};
+
+export const ZHENHUN_COMMENT_POST_URL =
+	"https://www.zhenhunxiaoshuo.com/wp-comments-post.php";
+export const CLOUDFLARE_CHALLENGE_MESSAGE =
+	"Blocked by Cloudflare. Complete the verification below, then post again.";
+
 const commentPages = new Map<string, CommentPage>();
 
 function normalizeCommentBaseUrl(url: string): string {
@@ -24,6 +33,7 @@ function normalizeCommentBaseUrl(url: string): string {
 }
 
 function commentPageUrl(baseUrl: string, pageNumber: number) {
+	if (pageNumber === 1) return baseUrl;
 	return `${baseUrl}/comment-page-${pageNumber}/`;
 }
 
@@ -46,6 +56,21 @@ function getCommentPostId(doc: Document): string | undefined {
 		?.value;
 }
 
+function hasZhenhunCommentDisplay(doc: Document): boolean {
+	return Boolean(
+		doc.querySelector("#postcomments > .commentlist .comment") ||
+			doc.querySelector('a.page-numbers[href*="comment-page-"]'),
+	);
+}
+
+function hasZhenhunCommentSupport(doc: Document): boolean {
+	return Boolean(
+		hasZhenhunCommentDisplay(doc) ||
+			doc.querySelector(".comments-title, #postcomments, #respond") ||
+			getCommentPostId(doc),
+	);
+}
+
 export function getCommentPageRefs(
 	doc: Document,
 	url: string,
@@ -53,11 +78,7 @@ export function getCommentPageRefs(
 ): CommentPageRef[] {
 	switch (hostname) {
 		case "www.zhenhunxiaoshuo.com": {
-			const hasComments =
-				Boolean(doc.querySelector("#postcomments")) ||
-				Boolean(doc.querySelector("#respond")) ||
-				Boolean(getCommentPostId(doc));
-			if (!hasComments) return [];
+			if (!hasZhenhunCommentSupport(doc)) return [];
 
 			const baseUrl = normalizeCommentBaseUrl(url);
 			const currentPage = Math.max(
@@ -167,4 +188,93 @@ export function getCachedCommentBundle(refs: CommentPageRef[]): CommentBundle {
 		postId: pages.find((page) => page.postId)?.postId,
 		supported: refs.length > 0,
 	};
+}
+
+function isCloudflareChallengeResponse(response: Response): boolean {
+	return (
+		response.headers.get("cf-mitigated") === "challenge" ||
+		(response.status === 403 &&
+			response.headers.get("server")?.toLowerCase() === "cloudflare")
+	);
+}
+
+function getErrorMessageFromPostResponse(response: Response, html: string): string {
+	const doc = new DOMParser().parseFromString(html, "text/html");
+	if (isCloudflareChallengeResponse(response)) {
+		return CLOUDFLARE_CHALLENGE_MESSAGE;
+	}
+	return (
+		doc.querySelector(".wp-die-message")?.textContent?.trim() ||
+		(doc.title === "Just a moment..."
+			? CLOUDFLARE_CHALLENGE_MESSAGE
+			: "Comment submission failed.")
+	);
+}
+
+function getPostResponseRef(
+	url: string,
+	refs: CommentPageRef[],
+): CommentPageRef {
+	const pageNumber = getCurrentCommentPageNumber(url);
+	const baseUrl = normalizeCommentBaseUrl(url);
+	const refUrl = commentPageUrl(baseUrl, pageNumber);
+	return (
+		refs.find((ref) => ref.pageNumber === pageNumber || ref.url === refUrl) ?? {
+			url: refUrl,
+			scope: refs[0]?.scope ?? "chapter",
+			pageNumber,
+			ownerUrl: baseUrl,
+		}
+	);
+}
+
+export async function postSiteComment(
+	refs: CommentPageRef[],
+	author: string,
+	text: string,
+	postId: string,
+	replyId?: string,
+	fetcher: typeof fetch = fetch,
+): Promise<CommentPostResult> {
+	switch (hostname) {
+		case "www.zhenhunxiaoshuo.com": {
+			const params = new URLSearchParams();
+			params.append("comment", text.replace(/\r?\n/g, "\r\n"));
+			params.append("submit", "");
+			params.append("author", author);
+			params.append("comment_post_ID", postId);
+			params.append("comment_parent", replyId?.replace("comment-", "") ?? "");
+
+			const response = await fetcher(
+				ZHENHUN_COMMENT_POST_URL,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
+					},
+					body: params.toString(),
+				},
+			);
+			const html = await response.text();
+			if (
+				response.url ===
+				ZHENHUN_COMMENT_POST_URL
+			) {
+				throw new Error(getErrorMessageFromPostResponse(response, html));
+			}
+
+			const ref = getPostResponseRef(response.url, refs);
+			const doc = new DOMParser().parseFromString(html, "text/html");
+			parseCommentPage(doc, ref);
+			const nextRefs = refs.some((item) => item.url === ref.url)
+				? refs
+				: [...refs, ref].sort((a, b) => a.pageNumber - b.pageNumber);
+			return {
+				...getCachedCommentBundle(nextRefs),
+				commentId: new URL(response.url).hash || undefined,
+			};
+		}
+		default:
+			throw new Error("Comment posting is not supported on this site.");
+	}
 }

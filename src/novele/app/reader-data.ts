@@ -3,7 +3,14 @@ import { type Link, resolveLinks, subscribeLinks } from "../core/extract/links";
 import { findPage } from "../core/extract/pages";
 import type { CommentItem, CommentPageRef } from "../core/extract/storage";
 import { nav } from "../core/nav";
-import { queueCatalogFetch, queueCommentFetch } from "../core/queue";
+import {
+	queueCatalogFetch,
+	queueCommentFetch,
+	queueSiteCommentPost,
+} from "../core/queue";
+import {
+	CLOUDFLARE_CHALLENGE_MESSAGE,
+} from "../core/extract/comments";
 
 type ChapterFetchState = {
 	loading: boolean;
@@ -20,11 +27,16 @@ type ChapterEntry = {
 
 type CommentViewState = {
 	loading: boolean;
+	posting: boolean;
 	supported: boolean;
 	refs: CommentPageRef[];
 	items: CommentItem[];
+	postId?: string;
 	error?: string;
+	needsCloudflareVerification: boolean;
 };
+
+const COMMENT_PREFETCH_RADIUS = 1;
 
 function normalizeReaderUrl(url: string) {
 	const parsed = new URL(url);
@@ -58,13 +70,16 @@ export function createReaderData() {
 	const fetchStates = van.state<Map<string, ChapterFetchState>>(new Map());
 	const currentComments = van.state<CommentViewState>({
 		loading: false,
+		posting: false,
 		supported: false,
 		refs: [],
 		items: [],
+		needsCloudflareVerification: false,
 	});
 	const globalError = van.state<string | null>(null);
 	let catalogQueued = false;
 	let commentRequestKey = "";
+	const prefetchedCommentKeys = new Set<string>();
 
 	const updateFetchState = (url: string, state: ChapterFetchState) => {
 		const next = new Map(fetchStates.val);
@@ -96,9 +111,11 @@ export function createReaderData() {
 		if (!refs.length) {
 			currentComments.val = {
 				loading: false,
+				posting: false,
 				supported: false,
 				refs: [],
 				items: [],
+				needsCloudflareVerification: false,
 			};
 			return;
 		}
@@ -106,22 +123,45 @@ export function createReaderData() {
 		const errors: string[] = [];
 		currentComments.val = {
 			loading: true,
+			posting: false,
 			supported: true,
 			refs,
 			items: [],
+			needsCloudflareVerification: false,
 		};
-		void queueCommentFetch(refs, orderHint, (_ref, error) => {
+		void queueCommentFetch(refs, orderHint, (_ref, error, bundle) => {
 			if (error) errors.push(error instanceof Error ? error.message : `${error}`);
+			if (!bundle || key !== commentRequestKey) return;
+			currentComments.val = {
+				...currentComments.val,
+				loading: true,
+				supported: bundle.supported,
+				refs,
+				items: bundle.items,
+				postId: bundle.postId,
+				error: errors[0],
+			};
 		}).then((bundle) => {
 			if (key !== commentRequestKey) return;
 			currentComments.val = {
 				loading: false,
+				posting: false,
 				supported: bundle.supported,
 				refs,
 				items: bundle.items,
+				postId: bundle.postId,
 				error: errors[0],
+				needsCloudflareVerification: false,
 			};
 		});
+	};
+
+	const prefetchComments = (refs: CommentPageRef[], orderHint: number) => {
+		if (!refs.length) return;
+		const key = refs.map((ref) => ref.url).join("\n");
+		if (prefetchedCommentKeys.has(key)) return;
+		prefetchedCommentKeys.add(key);
+		void queueCommentFetch(refs, orderHint);
 	};
 
 	subscribeLinks((nextLinks) => {
@@ -152,6 +192,12 @@ export function createReaderData() {
 		if (!link) return undefined;
 		return getResolvedChapter(link)?.startUrl ?? link.url;
 	});
+	const currentCommentsAvailable = van.derive(() => {
+		fetchStates.val;
+		const link = currentLink.val;
+		if (!link) return false;
+		return (getResolvedChapter(link)?.commentPages.length ?? 0) > 0;
+	});
 	const currentTitle = van.derive(() => {
 		fetchStates.val;
 		const link = currentLink.val;
@@ -167,6 +213,19 @@ export function createReaderData() {
 			return [] as string[];
 		}
 	});
+	van.derive(() => {
+		fetchStates.val;
+		const nextLinks = links.val;
+		const currentIndex = nav.index.val;
+		for (
+			let index = Math.max(0, currentIndex - COMMENT_PREFETCH_RADIUS);
+			index <= Math.min(nextLinks.length - 1, currentIndex + COMMENT_PREFETCH_RADIUS);
+			index += 1
+		) {
+			const chapter = getResolvedChapter(nextLinks[index]);
+			prefetchComments(chapter?.commentPages ?? [], index);
+		}
+	});
 	const loadCurrentComments = () => {
 		fetchStates.val;
 		const link = currentLink.val;
@@ -176,6 +235,48 @@ export function createReaderData() {
 		}
 		const chapter = getResolvedChapter(link);
 		queueComments(chapter?.commentPages ?? [], nav.index.val);
+	};
+	const submitCurrentComment = async (author: string, text: string) => {
+		const state = currentComments.val;
+		const commentText = text.trim();
+		if (!state.supported || !state.postId || !commentText || state.posting) {
+			return false;
+		}
+
+		currentComments.val = {
+			...state,
+			posting: true,
+			error: undefined,
+			needsCloudflareVerification: false,
+		};
+		try {
+			const bundle = await queueSiteCommentPost(
+				state.refs,
+				author.trim() || "匿名",
+				commentText,
+				state.postId,
+				nav.index.val,
+			);
+			currentComments.val = {
+				loading: false,
+				posting: false,
+				supported: bundle.supported,
+				refs: bundle.refs,
+				items: bundle.items,
+				postId: bundle.postId,
+				needsCloudflareVerification: false,
+			};
+			return true;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : `${error}`;
+			currentComments.val = {
+				...currentComments.val,
+				posting: false,
+				error: message,
+				needsCloudflareVerification: message === CLOUDFLARE_CHALLENGE_MESSAGE,
+			};
+			return false;
+		}
 	};
 	const currentStatus = van.derive(() => {
 		const link = currentLink.val;
@@ -228,12 +329,14 @@ export function createReaderData() {
 		chapterEntries,
 		currentLink,
 		currentChapterStartUrl,
+		currentCommentsAvailable,
 		currentTitle,
 		currentContent,
 		currentComments,
 		currentStatus,
 		globalError,
 		loadCurrentComments,
+		submitCurrentComment,
 		goTo,
 		previous,
 		next,

@@ -294,8 +294,18 @@ function getPrefaceChapter(
 	);
 	const commentPages = dedupeCommentPages(
 		parsedPages.flatMap(({ linkIndex, page }) => {
-			if (end && linkIndex > end.linkIndex) return [];
-			return page.slices?.flatMap((slice) => slice.commentPages ?? []) ?? [];
+			return (
+				page.slices?.flatMap((slice, sliceIndex) => {
+					if (
+						end &&
+						(linkIndex > end.linkIndex ||
+							(linkIndex === end.linkIndex && sliceIndex >= end.sliceIndex))
+					) {
+						return [];
+					}
+					return slice.commentPages ?? [];
+				}) ?? []
+			);
 		}),
 	);
 	return {

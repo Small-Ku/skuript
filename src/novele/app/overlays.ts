@@ -2,8 +2,9 @@ import van, { type ChildDom, type State } from "vanjs-core";
 import { IconClose, IconTune } from "../../style/icon";
 import { CustomDropdown } from "./component/custom-dropdown";
 import { getMaxChroma, oklchToRgb, rgbToHex } from "./color-math";
+import { ZHENHUN_COMMENT_POST_URL } from "../core/extract/comments";
 import type { createReaderData } from "./reader-data";
-import { siteCommentConfigs, type createUiState } from "./state";
+import type { createUiState } from "./state";
 import nameMap from "./style.module.scss";
 import type {
 	InterfaceDensity,
@@ -17,7 +18,7 @@ import type {
 	Typeface,
 } from "./types";
 
-const { aside, button, div, h2, input, nav, p, span } =
+const { aside, button, div, h2, iframe, input, nav, p, span, textarea } =
 	van.tags;
 
 type UiState = ReturnType<typeof createUiState>;
@@ -410,9 +411,8 @@ function settingsPanel(ui: UiState) {
 function commentStatusText(data: ReaderData) {
 	const state = data.currentComments.val;
 	if (state.loading) return `Loading ${state.refs.length} comment page(s)...`;
-	if (state.error) return state.error;
 	if (!state.supported) return "No site comment section was found for this page.";
-	if (!state.items.length) return "No comments were extracted from this page.";
+	if (!state.items.length) return "No comments yet.";
 	return "";
 }
 
@@ -438,18 +438,13 @@ export function OverlayPanels(
 	};
 	const chapterNavRoot = nav({ class: nameMap.chapterNav });
 	const commentsRoot = div({ class: nameMap.commentsList, onscroll: onInteraction });
-	const siteConfigSelect = div(
-		{ class: nameMap.siteConfigSelect },
-		CustomDropdown(
-			ui.activeSiteConfigId,
-			siteCommentConfigs.map((entry) => ({
-				label: entry.name,
-				value: entry.id,
-			})),
-			"sm",
-		),
-	);
-	const extraFieldsRoot = div({ class: nameMap.extraFields });
+	const submitComment = async () => {
+		const success = await data.submitCurrentComment(
+			ui.commentAuthor.val,
+			ui.commentDraft.val,
+		);
+		if (success) ui.commentDraft.val = "";
+	};
 
 	van.derive(() => {
 		const currentUrl = data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
@@ -516,25 +511,6 @@ export function OverlayPanels(
 		);
 	});
 
-	van.derive(() => {
-		const config =
-			siteCommentConfigs.find((entry) => entry.id === ui.activeSiteConfigId.val) ??
-			siteCommentConfigs[0];
-		extraFieldsRoot.replaceChildren(
-			...config.fields.map((field) =>
-				div(
-					{ class: nameMap.extraInputWrapper },
-					input({
-						class: nameMap.textInput,
-						type: field.type,
-						placeholder: field.placeholder,
-						disabled: true,
-					}),
-				),
-			),
-		);
-	});
-
 	return [
 		aside(
 			{
@@ -549,24 +525,75 @@ export function OverlayPanels(
 				class: drawerClass(ui, "comments", nameMap.commentsSheet),
 				onclick: (event) => event.stopPropagation(),
 			},
-			drawerHeader("Comments", close, siteConfigSelect),
+			drawerHeader("Comments", close),
 			commentsRoot,
 			div(
 				{ class: nameMap.commentInputArea },
-				extraFieldsRoot,
+				() =>
+					data.currentComments.val.error
+						? div(
+								{ class: nameMap.commentError },
+								data.currentComments.val.error,
+							)
+						: "",
+				() =>
+					data.currentComments.val.needsCloudflareVerification
+						? iframe({
+								class: nameMap.commentChallengeFrame,
+								src: ZHENHUN_COMMENT_POST_URL,
+								title: "Cloudflare verification",
+							})
+						: "",
 				div(
 					{ class: nameMap.inputWrapper },
 					input({
 						class: nameMap.textInput,
 						type: "text",
+						placeholder: "Nickname",
+						value: () => ui.commentAuthor.val,
+						oninput: (event: Event) => {
+							ui.commentAuthor.val = (event.target as HTMLInputElement).value;
+						},
+						disabled: () =>
+							data.currentComments.val.loading ||
+							data.currentComments.val.posting ||
+							!data.currentComments.val.postId,
+					}),
+				),
+				div(
+					{ class: nameMap.inputWrapper },
+					textarea({
+						class: nameMap.textInput,
 						placeholder: "Add a comment...",
 						value: () => ui.commentDraft.val,
 						oninput: (event: Event) => {
-							ui.commentDraft.val = (event.target as HTMLInputElement).value;
+							ui.commentDraft.val = (event.target as HTMLTextAreaElement).value;
 						},
-						disabled: true,
+						disabled: () =>
+							data.currentComments.val.loading ||
+							data.currentComments.val.posting ||
+							!data.currentComments.val.postId,
 					}),
-					button({ disabled: true }, "POST"),
+					button(
+						{
+							disabled: () => {
+								const comments = data.currentComments.val;
+								return (
+									comments.loading ||
+									comments.posting ||
+									!comments.postId ||
+									!ui.commentDraft.val.trim()
+								);
+							},
+							onclick: submitComment,
+						},
+						() =>
+							data.currentComments.val.posting
+								? "POSTING"
+								: data.currentComments.val.needsCloudflareVerification
+									? "RETRY"
+									: "POST",
+					),
 				),
 			),
 		),
