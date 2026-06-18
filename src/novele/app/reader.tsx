@@ -116,6 +116,12 @@ export function Reader(open: State<boolean>, ui: UiState) {
 	});
 
 	van.derive(() => {
+		if (open.val) {
+			data.start();
+		}
+	});
+
+	van.derive(() => {
 		if (!open.val) {
 			ui.activeOverlay.val = null;
 			ui.controlsVisible.val = true;
