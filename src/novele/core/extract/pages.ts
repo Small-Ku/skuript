@@ -54,12 +54,7 @@ function nextPaginatedUrl(url: string, pageIndex: number): string {
 }
 
 export function getAdditionalPageUrls(url: string, html: string): string[] {
-	if (
-		hostname === "www.52shuku.vip" &&
-		html.includes('class="list clearfix"')
-	) {
-		return [];
-	}
+	if (hostname === "www.52shuku.vip") return [];
 	const urls: string[] = [];
 	for (let i = 2; ; i++) {
 		const pageUrl = new URL(nextPaginatedUrl(url, i), url);

@@ -1,9 +1,11 @@
 export type ChapterCandidate = {
 	index: number;
+	series: "main" | "extra";
 	line: number;
 	title?: string;
 	standalone: boolean;
 	source: "content" | "title";
+	pattern?: "chapter" | "numbered" | "ending" | "extra" | "book-title";
 };
 
 export type CommentScope = "catalog" | "chapter" | "page";
@@ -46,6 +48,8 @@ export type ResolvedChapter = {
 	boundaryMode: ChapterBoundaryMode;
 	complete: boolean;
 	commentPages: CommentPageRef[];
+	resolvedPageKey?: string;
+	resolvedThroughLinkIndex?: number;
 };
 
 export type StoredPage = {

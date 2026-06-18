@@ -33,25 +33,103 @@ type CandidateWithRef = ChapterCandidate & {
 
 type ChapterMarker = {
 	chapterIndex: number;
+	series: ChapterCandidate["series"];
 	title: string;
 	linkIndex: number;
 	sliceIndex: number;
 	lineIndex: number;
 };
 
+type CandidateScoreBin = {
+	candidate: CandidateWithRef;
+	score: number;
+};
+
+const CLOSE_SEQUENCE_LINE_DISTANCE = 3;
+
 const numberRegex = "[\\d零一二三四五六七八九千百十万亿兆]";
-const titleRegex = [
-	`第\\s*(${numberRegex}+)\\s*章`,
+const numberedTitleRegex = new RegExp(
 	`^\\s*(${numberRegex}+)\\s*[.．、]\\s*\\S.*$`,
-	`(${numberRegex}+)\\s*正文完`,
-	`番外\\s*(${numberRegex}+)`,
+	"u",
+);
+const chapterTitleRegex = new RegExp(`第\\s*(${numberRegex}+)\\s*章`, "u");
+const endingTitleRegex = new RegExp(`(${numberRegex}+)\\s*正文完`, "u");
+const extraTitleRegex = new RegExp(`^\\s*番外\\s*(${numberRegex}+)`, "u");
+const bookTitleRegex = new RegExp(
 	`\\{bookTitle\\}[\\p{Unified_Ideograph}\\s：]*(${numberRegex}+)`,
+	"u",
+);
+const candidatePatterns: NonNullable<ChapterCandidate["pattern"]>[] = [
+	"chapter",
+	"numbered",
+	"ending",
+	"extra",
+	"book-title",
 ];
-const regexSource = `[^\\p{Unified_Ideograph}\\n]*(?:${titleRegex.join("|")})[^<>']*`;
-const chapterRegex = new RegExp(regexSource, "gu");
 
 function normalizeText(text?: string) {
 	return text?.replace(/\s+/g, "").trim() ?? "";
+}
+
+function parseChapterNumber(chapterText: string) {
+	const arabic = parseInt(chapterText, 10);
+	if (arabic > 0) return arabic;
+	return zhDigitToNumber(chapterText);
+}
+
+function getCandidateIdentity(
+	candidate: Pick<ChapterCandidate, "series" | "index">,
+) {
+	return `${candidate.series}:${candidate.index}`;
+}
+
+function getChapterTitleMatches(lineText: string) {
+	const text = lineText.trim();
+	const checks = [
+		{
+			regex: numberedTitleRegex,
+			pattern: "numbered" as const,
+			series: "main" as const,
+		},
+		{
+			regex: chapterTitleRegex,
+			pattern: "chapter" as const,
+			series: "main" as const,
+		},
+		{
+			regex: endingTitleRegex,
+			pattern: "ending" as const,
+			series: "main" as const,
+		},
+		{
+			regex: extraTitleRegex,
+			pattern: "extra" as const,
+			series: "extra" as const,
+		},
+		{
+			regex: bookTitleRegex,
+			pattern: "book-title" as const,
+			series: "main" as const,
+		},
+	];
+
+	for (const { regex, pattern, series } of checks) {
+		const match = text.match(regex);
+		const chapterText = match?.[1];
+		if (!chapterText) continue;
+		const chapterIndex = parseChapterNumber(chapterText);
+		if (chapterIndex < 0) continue;
+		return [
+			{
+				chapterIndex,
+				series,
+				title: match[0].trim(),
+				pattern,
+			},
+		];
+	}
+
+	return [];
 }
 
 function compareCursor(
@@ -62,6 +140,15 @@ function compareCursor(
 		a.linkIndex - b.linkIndex ||
 		a.sliceIndex - b.sliceIndex ||
 		a.lineIndex - b.lineIndex
+	);
+}
+
+function compareCandidateCursor(
+	a: Pick<CandidateWithRef, "linkIndex" | "sliceIndex" | "line">,
+	b: Pick<CandidateWithRef, "linkIndex" | "sliceIndex" | "line">,
+) {
+	return (
+		a.linkIndex - b.linkIndex || a.sliceIndex - b.sliceIndex || a.line - b.line
 	);
 }
 
@@ -89,37 +176,31 @@ function matchChapterTitle(
 	const candidates = new Map<number, ChapterCandidate[]>();
 
 	text.forEach((lineText, lineIndex) => {
-		for (const match of lineText.matchAll(chapterRegex)) {
-			const chapterFullText = match[0].trim();
-			const chapterTextIndex = match
-				.slice(1)
-				.findIndex((item) => item !== undefined);
-			const chapterText = match.slice(1).at(chapterTextIndex);
-			if (!chapterText) continue;
-
-			let chapterIndex =
-				parseInt(chapterText, 10) || zhDigitToNumber(chapterText);
-			if (chapterIndex < 0) continue;
-			chapterIndex *= chapterTextIndex === 2 ? -1 : 1;
-
+		for (const match of getChapterTitleMatches(lineText)) {
+			const chapterFullText = match.title;
+			const chapterIndex = match.chapterIndex;
 			const current = candidates.get(chapterIndex) ?? [];
 			current.push({
 				index: chapterIndex,
+				series: match.series,
 				title: chapterFullText,
 				standalone,
 				source,
 				line: lineIndex,
+				pattern: match.pattern,
 			});
 			candidates.set(chapterIndex, current);
 
 			if (standalone || lineIndex === 0) continue;
-			const previousIndex = chapterIndex - (chapterTextIndex === 2 ? -1 : 1);
+			const previousIndex = chapterIndex - 1;
 			const previous = candidates.get(previousIndex) ?? [];
 			previous.push({
 				index: previousIndex,
+				series: match.series,
 				standalone,
 				source,
 				line: lineIndex,
+				pattern: match.pattern,
 			});
 			candidates.set(previousIndex, previous);
 		}
@@ -171,6 +252,7 @@ function getParsedLinkPages(orderedUrls: string[]): ParsedLinkPage[] {
 function buildChapterIndex(parsedPages: ParsedLinkPage[]) {
 	const markers: ChapterMarker[] = [];
 	const candidatesByLink = new Map<number, Map<number, ChapterCandidate[]>>();
+	const markerCandidates: CandidateWithRef[] = [];
 
 	for (const parsedPage of parsedPages) {
 		const pageCandidates = new Map<number, ChapterCandidate[]>();
@@ -181,22 +263,205 @@ function buildChapterIndex(parsedPages: ParsedLinkPage[]) {
 				current.push(...candidates);
 				pageCandidates.set(chapterIndex, current);
 			}
-			for (const candidate of refs) {
-				if (!candidate.title) continue;
-				markers.push({
-					chapterIndex: candidate.index,
-					title: candidate.title,
-					linkIndex: parsedPage.linkIndex,
-					sliceIndex: candidate.sliceIndex,
-					lineIndex: candidate.line,
-				});
-			}
+			markerCandidates.push(
+				...refs
+					.filter((candidate) => candidate.title)
+					.map((candidate) => ({
+						...candidate,
+						linkIndex: parsedPage.linkIndex,
+					})),
+			);
 		});
 		candidatesByLink.set(parsedPage.linkIndex, pageCandidates);
 	}
 
+	markers.push(...selectChapterMarkers(markerCandidates));
 	markers.sort(compareCursor);
 	return { markers, candidatesByLink };
+}
+
+function countBy<T>(items: T[], getKey: (item: T) => string) {
+	const counts = new Map<string, number>();
+	for (const item of items) {
+		const key = getKey(item);
+		counts.set(key, (counts.get(key) ?? 0) + 1);
+	}
+	return counts;
+}
+
+function findPreviousCandidate(
+	candidates: CandidateWithRef[],
+	candidate: CandidateWithRef,
+) {
+	return candidates
+		.filter((item) => compareCandidateCursor(item, candidate) < 0)
+		.at(-1);
+}
+
+function findNextCandidate(
+	candidates: CandidateWithRef[],
+	candidate: CandidateWithRef,
+) {
+	return candidates.find((item) => compareCandidateCursor(item, candidate) > 0);
+}
+
+function updateScoreForNeighbor(
+	bin: CandidateScoreBin,
+	neighbor: CandidateWithRef | undefined,
+	direction: "previous" | "next",
+) {
+	if (!neighbor) return;
+	if (bin.candidate.series !== neighbor.series) return;
+
+	const delta = bin.candidate.index - neighbor.index;
+	if (
+		(direction === "previous" && delta <= 0) ||
+		(direction === "next" && delta >= 0)
+	) {
+		bin.score -= 120;
+		return;
+	}
+	if (Math.abs(delta) === 1) {
+		if (isCloseSequentialCandidate(bin.candidate, neighbor)) {
+			bin.score -= 70;
+			return;
+		}
+		bin.score += 30;
+	}
+}
+
+function createPatternScoreBins(candidates: CandidateWithRef[]) {
+	const sorted = [...candidates].sort(compareCandidateCursor);
+	const patternCounts = countBy(sorted, (candidate) => candidate.pattern ?? "");
+	const patternScores = new Map<string, number>();
+
+	for (const [pattern, count] of patternCounts) {
+		patternScores.set(pattern, 50 + count * 4);
+	}
+
+	for (const candidate of sorted) {
+		const pattern = candidate.pattern ?? "";
+		const currentScore = patternScores.get(pattern) ?? 50;
+		const previous = findPreviousCandidate(
+			sorted.filter((item) => item.pattern === candidate.pattern),
+			candidate,
+		);
+		const next = findNextCandidate(
+			sorted.filter((item) => item.pattern === candidate.pattern),
+			candidate,
+		);
+		const penalty =
+			(previous && isCloseSequentialCandidate(candidate, previous) ? 35 : 0) +
+			(next && isCloseSequentialCandidate(candidate, next) ? 35 : 0);
+		patternScores.set(pattern, currentScore - penalty);
+	}
+
+	return patternScores;
+}
+
+function createCandidateScoreBins(candidates: CandidateWithRef[]) {
+	const sorted = [...candidates].sort(compareCandidateCursor);
+	const patternScores = createPatternScoreBins(sorted);
+	const strongestPattern = Array.from(patternScores.entries()).sort(
+		([, a], [, b]) => b - a,
+	)[0]?.[0];
+	const titleAnchors = sorted.filter(
+		(candidate) => candidate.source === "title" && candidate.standalone,
+	);
+	const patternAnchors = strongestPattern
+		? sorted.filter((candidate) => candidate.pattern === strongestPattern)
+		: [];
+	const anchors =
+		patternAnchors.length > 0
+			? patternAnchors
+			: titleAnchors.length
+				? titleAnchors
+				: sorted;
+
+	return sorted.map((candidate) => {
+		const bin: CandidateScoreBin = {
+			candidate,
+			score: patternScores.get(candidate.pattern ?? "") ?? 50,
+		};
+		const previousAnchor = findPreviousCandidate(anchors, candidate);
+		const nextAnchor = findNextCandidate(anchors, candidate);
+
+		updateScoreForNeighbor(bin, previousAnchor, "previous");
+		updateScoreForNeighbor(bin, nextAnchor, "next");
+		if (
+			previousAnchor &&
+			nextAnchor &&
+			candidate.series === previousAnchor.series &&
+			candidate.series === nextAnchor.series &&
+			candidate.index > previousAnchor.index &&
+			candidate.index < nextAnchor.index
+		) {
+			bin.score += 50;
+		}
+
+		return bin;
+	});
+}
+
+function compareCandidateScoreBins(a: CandidateScoreBin, b: CandidateScoreBin) {
+	return (
+		b.score - a.score ||
+		compareCandidateCursor(a.candidate, b.candidate) ||
+		(a.candidate.source === b.candidate.source
+			? 0
+			: a.candidate.source === "title"
+				? -1
+				: 1)
+	);
+}
+
+function lineDistance(a: CandidateWithRef, b: CandidateWithRef) {
+	if (a.linkIndex !== b.linkIndex || a.sliceIndex !== b.sliceIndex)
+		return Number.POSITIVE_INFINITY;
+	return Math.abs(a.line - b.line);
+}
+
+function isCloseSequentialCandidate(a: CandidateWithRef, b: CandidateWithRef) {
+	return (
+		a.series === b.series &&
+		a.pattern === b.pattern &&
+		Math.abs(a.index - b.index) === 1 &&
+		lineDistance(a, b) <= CLOSE_SEQUENCE_LINE_DISTANCE
+	);
+}
+
+function selectChapterMarkers(candidates: CandidateWithRef[]) {
+	const binsByIndex = new Map<string, CandidateScoreBin[]>();
+	for (const bin of createCandidateScoreBins(candidates)) {
+		const key = getCandidateIdentity(bin.candidate);
+		const bins = binsByIndex.get(key) ?? [];
+		bins.push(bin);
+		binsByIndex.set(key, bins);
+	}
+
+	return Array.from(binsByIndex.values()).flatMap((bins) => {
+		const bin = bins.sort(compareCandidateScoreBins)[0];
+		if (!bin || bin.score < 50) return [];
+		const { candidate } = bin;
+		return [
+			{
+				chapterIndex: candidate.index,
+				series: candidate.series,
+				title: candidate.title ?? "",
+				linkIndex: candidate.linkIndex,
+				sliceIndex: candidate.sliceIndex,
+				lineIndex: candidate.line,
+			},
+		];
+	});
+}
+
+function getOwningMarker(markers: ChapterMarker[], linkIndex: number) {
+	const currentPageMarker = markers.find(
+		(marker) => marker.linkIndex === linkIndex,
+	);
+	if (currentPageMarker) return currentPageMarker;
+	return markers.filter((marker) => marker.linkIndex < linkIndex).at(-1);
 }
 
 function flattenLines(parsedPages: ParsedLinkPage[]) {
@@ -337,9 +602,20 @@ export function resolvePageChapter(
 	}
 
 	const linkIndex = Math.max(0, orderedUrls.indexOf(url));
+	const parsedPages = getParsedLinkPages(orderedUrls);
+	const parsedPageKey = parsedPages
+		.map((parsedPage) => `${parsedPage.linkIndex}:${parsedPage.page.lastModified.getTime()}`)
+		.join(",");
+	const loadedLastLinkIndex = Math.max(
+		...parsedPages.map((parsedPage) => parsedPage.linkIndex),
+		linkIndex,
+	);
+	const allLinksLoaded = loadedLastLinkIndex >= orderedUrls.length - 1;
 	const cached = page.resolvedChapter;
 	if (
 		cached?.complete &&
+		cached.resolvedPageKey === parsedPageKey &&
+		cached.resolvedThroughLinkIndex === loadedLastLinkIndex &&
 		(cached.boundaryMode === "marker-bounded" || orderedUrls.length <= 1)
 	) {
 		return {
@@ -349,18 +625,9 @@ export function resolvePageChapter(
 		};
 	}
 
-	const parsedPages = getParsedLinkPages(orderedUrls);
-	const loadedLastLinkIndex = Math.max(
-		...parsedPages.map((parsedPage) => parsedPage.linkIndex),
-		linkIndex,
-	);
-	const allLinksLoaded = loadedLastLinkIndex >= orderedUrls.length - 1;
 	const { markers, candidatesByLink } = buildChapterIndex(parsedPages);
 	const candidates = candidatesByLink.get(linkIndex) ?? new Map();
-	const previousMarkers = markers.filter(
-		(marker) => marker.linkIndex <= linkIndex,
-	);
-	const owningMarker = previousMarkers.at(-1);
+	const owningMarker = getOwningMarker(markers, linkIndex);
 	const firstMarker = markers[0];
 
 	let resolvedChapter: ResolvedChapter;
@@ -394,6 +661,8 @@ export function resolvePageChapter(
 
 	resolvedChapter.startUrl ??= url;
 	resolvedChapter.startLinkIndex ??= linkIndex;
+	resolvedChapter.resolvedPageKey = parsedPageKey;
+	resolvedChapter.resolvedThroughLinkIndex = loadedLastLinkIndex;
 	page.resolvedChapter = resolvedChapter;
 	page.slices = [...page.slices];
 	setPage(page);
@@ -411,7 +680,7 @@ function zhDigitToNumber(digit: string) {
 	const quot = ["万", "亿", "兆"];
 	let result = 0;
 
-	if (!digit.split("").find((i) => zh.includes(i))) return -1;
+	if (!digit.split("").find((i) => zh.includes(i) || unit.includes(i))) return -1;
 	digit = digit.replace("萬", "万").replace("億", "亿");
 
 	function getNumber(num: string) {
