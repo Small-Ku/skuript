@@ -2,10 +2,8 @@ import { JobQueue } from "../../util/job-queue";
 import { resolvePageChapter } from "./extract/chapters";
 import {
 	type CommentBundle,
-	type CommentPostResult,
 	getCachedCommentBundle,
 	parseCommentPage,
-	postSiteComment,
 } from "./extract/comments";
 import {
 	canUseCurrentDocument,
@@ -199,23 +197,6 @@ export async function queueCommentFetch(
 		),
 	);
 	return getCachedCommentBundle(refs);
-}
-
-export async function queueSiteCommentPost(
-	refs: CommentPageRef[],
-	author: string,
-	text: string,
-	postId: string,
-	orderHint = 0,
-	replyId?: string,
-): Promise<CommentPostResult> {
-	return fetchQueue.addJob(
-		() =>
-			postSiteComment(refs, author, text, postId, replyId, (input, init) =>
-				fetchWith429Retry(input, init),
-			),
-		{ kind: "comment-post", url: "comment-post", orderHint },
-	) as Promise<CommentPostResult>;
 }
 
 export async function queueChapterFetch(

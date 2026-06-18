@@ -5,7 +5,14 @@ import van, {
 	type State,
 } from "vanjs-core";
 import { IconClose, IconTune } from "../../style/icon";
-import { ZHENHUN_COMMENT_POST_URL } from "../core/extract/comments";
+import {
+	CLOUDFLARE_CHALLENGE_MESSAGE,
+	COMMENT_MISSING_AFTER_REDIRECT_MESSAGE,
+	COMMENT_RATE_LIMIT_MESSAGE,
+	resolveCommentPostResult,
+	ZHENHUN_COMMENT_POST_URL,
+} from "../core/extract/comments";
+import type { CommentPageRef } from "../core/extract/storage";
 import { CustomDropdown } from "./components/custom-dropdown";
 import type { createReaderData } from "./reader-data";
 import type { createUiState } from "./state";
@@ -31,7 +38,7 @@ import {
 	TYPEFACE_VALUES,
 } from "./types";
 
-const { aside, button, div, h2, iframe, input, nav, p, span, textarea } =
+const { aside, button, div, form, h2, iframe, input, nav, p, span, textarea } =
 	van.tags;
 
 type UiState = ReturnType<typeof createUiState>;
@@ -477,20 +484,161 @@ export function OverlayPanels(
 	data: ReaderData,
 	onInteraction: () => void,
 ) {
+	const commentFrameName = "novele-comment-post-target";
+	const COMMENT_POST_TIMEOUT_MS = 15000;
 	const close = () => {
 		ui.activeOverlay.val = null;
 	};
+	const commentChallengeFrame = iframe({
+		class: () =>
+			[
+				nameMap.commentChallengeFrame,
+				data.currentComments.val.needsCloudflareVerification
+					? ""
+					: nameMap.commentChallengeFrameHidden,
+			]
+				.filter(Boolean)
+				.join(" "),
+		title: "Cloudflare verification",
+		name: commentFrameName,
+	}) as HTMLIFrameElement;
 	const chapterNavRoot = nav({ class: nameMap.chapterNav });
 	const commentsRoot = div({
 		class: nameMap.commentsList,
 		onscroll: onInteraction,
 	});
-	const submitComment = async () => {
-		const success = await data.submitCurrentComment(
+	let pendingCommentRefs: CommentPageRef[] | null = null;
+	let commentPostTimeoutId: number | null = null;
+	const authorInputElement = input({
+		class: nameMap.textInput,
+		type: "text",
+		name: "author",
+		placeholder: "Nickname",
+		value: () => ui.commentAuthor.val,
+		oninput: (event: Event) => {
+			ui.commentAuthor.val = (event.target as HTMLInputElement).value;
+		},
+		disabled: () =>
+			data.currentComments.val.loading ||
+			data.currentComments.val.posting ||
+			!data.currentComments.val.postId,
+	}) as HTMLInputElement;
+	const commentInputElement = textarea({
+		class: nameMap.textInput,
+		name: "comment",
+		placeholder: "Add a comment...",
+		value: () => ui.commentDraft.val,
+		oninput: (event: Event) => {
+			ui.commentDraft.val = (event.target as HTMLTextAreaElement).value;
+		},
+		disabled: () =>
+			data.currentComments.val.loading ||
+			data.currentComments.val.posting ||
+			!data.currentComments.val.postId,
+	}) as HTMLTextAreaElement;
+
+	const clearCommentPostTimeout = () => {
+		if (commentPostTimeoutId === null) return;
+		window.clearTimeout(commentPostTimeoutId);
+		commentPostTimeoutId = null;
+	};
+
+	const resetCommentFrame = () => {
+		commentChallengeFrame.src = "about:blank";
+	};
+
+	const finalizeCommentPost = () => {
+		pendingCommentRefs = null;
+		clearCommentPostTimeout();
+	};
+
+	const getCommentFrameResponseStatus = (): number | undefined => {
+		try {
+			const navigationEntry = commentChallengeFrame.contentWindow?.performance
+				.getEntriesByType("navigation")
+				.at(0) as PerformanceNavigationTiming | undefined;
+			const status = navigationEntry?.responseStatus;
+			return typeof status === "number" && status > 0 ? status : undefined;
+		} catch (error) {
+			console.debug(
+				"[novele] comment iframe responseStatus unavailable",
+				error,
+			);
+			return undefined;
+		}
+	};
+
+	commentChallengeFrame.addEventListener("load", () => {
+		if (!pendingCommentRefs) return;
+		const responseStatus = getCommentFrameResponseStatus();
+		console.debug("[novele] comment iframe load", {
+			url: commentChallengeFrame.contentWindow?.location.href,
+			responseStatus,
+		});
+		try {
+			const doc = commentChallengeFrame.contentDocument;
+			const finalUrl = commentChallengeFrame.contentWindow?.location.href;
+			if (!doc || !finalUrl) {
+				throw new Error(
+					"Comment submission iframe did not expose a readable document.",
+				);
+			}
+			const bundle = resolveCommentPostResult(
+				pendingCommentRefs,
+				doc,
+				finalUrl,
+				responseStatus,
+			);
+			finalizeCommentPost();
+			data.completeCurrentCommentSubmission(bundle);
+			ui.commentDraft.val = "";
+			resetCommentFrame();
+		} catch (error) {
+			finalizeCommentPost();
+			data.failCurrentCommentSubmission(error);
+			const message = error instanceof Error ? error.message : `${error}`;
+			if (message !== CLOUDFLARE_CHALLENGE_MESSAGE) {
+				resetCommentFrame();
+			}
+			if (message === COMMENT_MISSING_AFTER_REDIRECT_MESSAGE) {
+				console.warn("[novele] redirected comment missing from returned page");
+			}
+			if (message === COMMENT_RATE_LIMIT_MESSAGE) {
+				console.warn("[novele] comment request hit HTTP 429");
+			}
+			console.debug("[novele] comment iframe load failed", error);
+		}
+	});
+
+	const onCommentSubmit = (event: Event) => {
+		const prepared = data.prepareCurrentCommentSubmission(
 			ui.commentAuthor.val,
 			ui.commentDraft.val,
 		);
-		if (success) ui.commentDraft.val = "";
+		if (!prepared) {
+			event.preventDefault();
+			return;
+		}
+
+		console.debug("[novele] comment submit", {
+			postId: data.currentComments.val.postId,
+			refs: prepared.refs.length,
+		});
+		pendingCommentRefs = prepared.refs;
+		clearCommentPostTimeout();
+		commentPostTimeoutId = window.setTimeout(() => {
+			if (!pendingCommentRefs) return;
+			console.warn("[novele] comment iframe timed out");
+			finalizeCommentPost();
+			data.failCurrentCommentSubmission(
+				new Error("Comment submission timed out."),
+			);
+			resetCommentFrame();
+		}, COMMENT_POST_TIMEOUT_MS);
+		ui.commentAuthor.val = prepared.author;
+		ui.commentDraft.val = prepared.text;
+		if (authorInputElement) authorInputElement.value = prepared.author;
+		if (commentInputElement) commentInputElement.value = prepared.text;
 	};
 
 	van.derive(() => {
@@ -591,8 +739,14 @@ export function OverlayPanels(
 			},
 			drawerHeader("Comments", close),
 			commentsRoot,
-			div(
-				{ class: nameMap.commentInputArea },
+			form(
+				{
+					class: nameMap.commentInputArea,
+					method: "POST",
+					action: ZHENHUN_COMMENT_POST_URL,
+					target: commentFrameName,
+					onsubmit: onCommentSubmit,
+				},
 				() =>
 					data.currentComments.val.error
 						? div(
@@ -600,44 +754,26 @@ export function OverlayPanels(
 								data.currentComments.val.error,
 							)
 						: "",
-				() =>
-					data.currentComments.val.needsCloudflareVerification
-						? iframe({
-								class: nameMap.commentChallengeFrame,
-								src: ZHENHUN_COMMENT_POST_URL,
-								title: "Cloudflare verification",
-							})
-						: "",
+				() => commentChallengeFrame,
+				input({
+					type: "hidden",
+					name: "submit",
+					value: "",
+				}),
+				input({
+					type: "hidden",
+					name: "comment_post_ID",
+					value: () => data.currentComments.val.postId ?? "",
+				}),
+				input({
+					type: "hidden",
+					name: "comment_parent",
+					value: "",
+				}),
+				div({ class: nameMap.inputWrapper }, authorInputElement),
 				div(
 					{ class: nameMap.inputWrapper },
-					input({
-						class: nameMap.textInput,
-						type: "text",
-						placeholder: "Nickname",
-						value: () => ui.commentAuthor.val,
-						oninput: (event: Event) => {
-							ui.commentAuthor.val = (event.target as HTMLInputElement).value;
-						},
-						disabled: () =>
-							data.currentComments.val.loading ||
-							data.currentComments.val.posting ||
-							!data.currentComments.val.postId,
-					}),
-				),
-				div(
-					{ class: nameMap.inputWrapper },
-					textarea({
-						class: nameMap.textInput,
-						placeholder: "Add a comment...",
-						value: () => ui.commentDraft.val,
-						oninput: (event: Event) => {
-							ui.commentDraft.val = (event.target as HTMLTextAreaElement).value;
-						},
-						disabled: () =>
-							data.currentComments.val.loading ||
-							data.currentComments.val.posting ||
-							!data.currentComments.val.postId,
-					}),
+					commentInputElement,
 					button(
 						{
 							disabled: () => {
@@ -649,7 +785,7 @@ export function OverlayPanels(
 									!ui.commentDraft.val.trim()
 								);
 							},
-							onclick: submitComment,
+							type: "submit",
 						},
 						() =>
 							data.currentComments.val.posting

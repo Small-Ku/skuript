@@ -217,6 +217,10 @@
 		background-color: var(--color-input-surface);
 	}
 
+	.commentChallengeFrameHidden {
+		display: none;
+	}
+
 	.commentError {
 		padding: 0.75em 1em;
 		border: 1px solid var(--color-border-glass);

@@ -1,14 +1,13 @@
 import van from "vanjs-core";
-import { CLOUDFLARE_CHALLENGE_MESSAGE } from "../core/extract/comments";
+import {
+	CLOUDFLARE_CHALLENGE_MESSAGE,
+	type CommentPostResult,
+} from "../core/extract/comments";
 import { type Link, resolveLinks, subscribeLinks } from "../core/extract/links";
 import { findPage } from "../core/extract/pages";
 import type { CommentItem, CommentPageRef } from "../core/extract/storage";
 import { nav } from "../core/nav";
-import {
-	queueCatalogFetch,
-	queueCommentFetch,
-	queueSiteCommentPost,
-} from "../core/queue";
+import { queueCatalogFetch, queueCommentFetch } from "../core/queue";
 
 type ChapterFetchState = {
 	loading: boolean;
@@ -32,6 +31,12 @@ type CommentViewState = {
 	postId?: string;
 	error?: string;
 	needsCloudflareVerification: boolean;
+};
+
+type PreparedCommentSubmission = {
+	author: string;
+	text: string;
+	refs: CommentPageRef[];
 };
 
 export type NavigationMode = "initial" | "previous" | "next" | "jump";
@@ -239,47 +244,48 @@ export function createReaderData() {
 		const chapter = getResolvedChapter(link);
 		queueComments(chapter?.commentPages ?? [], nav.index.val);
 	};
-	const submitCurrentComment = async (author: string, text: string) => {
+	const prepareCurrentCommentSubmission = (
+		author: string,
+		text: string,
+	): PreparedCommentSubmission | null => {
 		const state = currentComments.val;
 		const commentText = text.trim();
 		if (!state.supported || !state.postId || !commentText || state.posting) {
-			return false;
+			return null;
 		}
 
+		const normalizedAuthor = author.trim() || "匿名";
 		currentComments.val = {
 			...state,
 			posting: true,
 			error: undefined,
 			needsCloudflareVerification: false,
 		};
-		try {
-			const bundle = await queueSiteCommentPost(
-				state.refs,
-				author.trim() || "匿名",
-				commentText,
-				state.postId,
-				nav.index.val,
-			);
-			currentComments.val = {
-				loading: false,
-				posting: false,
-				supported: bundle.supported,
-				refs: bundle.refs,
-				items: bundle.items,
-				postId: bundle.postId,
-				needsCloudflareVerification: false,
-			};
-			return true;
-		} catch (error) {
-			const message = error instanceof Error ? error.message : `${error}`;
-			currentComments.val = {
-				...currentComments.val,
-				posting: false,
-				error: message,
-				needsCloudflareVerification: message === CLOUDFLARE_CHALLENGE_MESSAGE,
-			};
-			return false;
-		}
+		return {
+			author: normalizedAuthor,
+			text: commentText,
+			refs: state.refs,
+		};
+	};
+	const completeCurrentCommentSubmission = (bundle: CommentPostResult) => {
+		currentComments.val = {
+			loading: false,
+			posting: false,
+			supported: bundle.supported,
+			refs: bundle.refs,
+			items: bundle.items,
+			postId: bundle.postId,
+			needsCloudflareVerification: false,
+		};
+	};
+	const failCurrentCommentSubmission = (error: unknown) => {
+		const message = error instanceof Error ? error.message : `${error}`;
+		currentComments.val = {
+			...currentComments.val,
+			posting: false,
+			error: message,
+			needsCloudflareVerification: message === CLOUDFLARE_CHALLENGE_MESSAGE,
+		};
 	};
 	const currentStatus = van.derive(() => {
 		const link = currentLink.val;
@@ -343,7 +349,9 @@ export function createReaderData() {
 		currentStatus,
 		globalError,
 		loadCurrentComments,
-		submitCurrentComment,
+		prepareCurrentCommentSubmission,
+		completeCurrentCommentSubmission,
+		failCurrentCommentSubmission,
 		goTo,
 		previous,
 		next,

@@ -22,6 +22,10 @@ export const ZHENHUN_COMMENT_POST_URL =
 	"https://www.zhenhunxiaoshuo.com/wp-comments-post.php";
 export const CLOUDFLARE_CHALLENGE_MESSAGE =
 	"Blocked by Cloudflare. Complete the verification below, then post again.";
+export const COMMENT_RATE_LIMIT_MESSAGE =
+	"The site rate-limited this comment request with HTTP 429. Wait a bit and try again. Your draft was kept.";
+export const COMMENT_MISSING_AFTER_REDIRECT_MESSAGE =
+	"The site redirected to a new comment anchor, but the comment was missing from the returned page. This looks like a site-side moderation or cache issue, not your fault. Your draft was kept so you can retry.";
 
 const commentPages = new Map<string, CommentPage>();
 
@@ -199,28 +203,23 @@ export function getCachedCommentBundle(refs: CommentPageRef[]): CommentBundle {
 	};
 }
 
-function isCloudflareChallengeResponse(response: Response): boolean {
+function isCloudflareChallengeDocument(doc: Document): boolean {
 	return (
-		response.headers.get("cf-mitigated") === "challenge" ||
-		(response.status === 403 &&
-			response.headers.get("server")?.toLowerCase() === "cloudflare")
+		doc.title === "Just a moment..." ||
+		Boolean(
+			doc.querySelector(
+				"#challenge-form, .cf-browser-verification, .main-content .cf-error-title",
+			),
+		)
 	);
 }
 
-function getErrorMessageFromPostResponse(
-	response: Response,
-	html: string,
-): string {
-	const doc = new DOMParser().parseFromString(html, "text/html");
-	if (isCloudflareChallengeResponse(response)) {
-		return CLOUDFLARE_CHALLENGE_MESSAGE;
+function canQueryCommentSelector(doc: Document, selector: string): boolean {
+	try {
+		return Boolean(doc.querySelector(selector));
+	} catch {
+		return false;
 	}
-	return (
-		doc.querySelector(".wp-die-message")?.textContent?.trim() ||
-		(doc.title === "Just a moment..."
-			? CLOUDFLARE_CHALLENGE_MESSAGE
-			: "Comment submission failed.")
-	);
 }
 
 function getPostResponseRef(
@@ -240,44 +239,46 @@ function getPostResponseRef(
 	);
 }
 
-export async function postSiteComment(
+export function resolveCommentPostResult(
 	refs: CommentPageRef[],
-	author: string,
-	text: string,
-	postId: string,
-	replyId?: string,
-	fetcher: typeof fetch = fetch,
-): Promise<CommentPostResult> {
+	doc: Document,
+	finalUrl: string,
+	responseStatus?: number,
+): CommentPostResult {
 	switch (hostname) {
 		case "www.zhenhunxiaoshuo.com": {
-			const params = new URLSearchParams();
-			params.append("comment", text.replace(/\r?\n/g, "\r\n"));
-			params.append("submit", "");
-			params.append("author", author);
-			params.append("comment_post_ID", postId);
-			params.append("comment_parent", replyId?.replace("comment-", "") ?? "");
-
-			const response = await fetcher(ZHENHUN_COMMENT_POST_URL, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-				body: params.toString(),
-			});
-			const html = await response.text();
-			if (response.url === ZHENHUN_COMMENT_POST_URL) {
-				throw new Error(getErrorMessageFromPostResponse(response, html));
+			if (responseStatus === 429) {
+				throw new Error(COMMENT_RATE_LIMIT_MESSAGE);
+			}
+			if (isCloudflareChallengeDocument(doc)) {
+				throw new Error(CLOUDFLARE_CHALLENGE_MESSAGE);
+			}
+			if (finalUrl === ZHENHUN_COMMENT_POST_URL) {
+				throw new Error(
+					doc.querySelector(".wp-die-message")?.textContent?.trim() ||
+						"Comment submission failed.",
+				);
 			}
 
-			const ref = getPostResponseRef(response.url, refs);
-			const doc = new DOMParser().parseFromString(html, "text/html");
+			const ref = getPostResponseRef(finalUrl, refs);
+			const commentId = new URL(finalUrl).hash || undefined;
+			if (
+				commentId &&
+				!canQueryCommentSelector(doc, commentId) &&
+				!canQueryCommentSelector(
+					doc,
+					`#${CSS.escape(commentId.replace(/^#/, ""))}`,
+				)
+			) {
+				throw new Error(COMMENT_MISSING_AFTER_REDIRECT_MESSAGE);
+			}
 			parseCommentPage(doc, ref);
 			const nextRefs = refs.some((item) => item.url === ref.url)
 				? refs
 				: [...refs, ref].sort((a, b) => a.pageNumber - b.pageNumber);
 			return {
 				...getCachedCommentBundle(nextRefs),
-				commentId: new URL(response.url).hash || undefined,
+				commentId,
 			};
 		}
 		default:
