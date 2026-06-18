@@ -34,6 +34,8 @@ type CommentViewState = {
 	needsCloudflareVerification: boolean;
 };
 
+export type NavigationMode = "initial" | "previous" | "next" | "jump";
+
 const COMMENT_PREFETCH_RADIUS = 1;
 
 function normalizeReaderUrl(url: string) {
@@ -66,6 +68,7 @@ function getResolvedChapter(link: Link) {
 export function createReaderData() {
 	const links = van.state<Link[]>([]);
 	const fetchStates = van.state<Map<string, ChapterFetchState>>(new Map());
+	const navigationMode = van.state<NavigationMode>("initial");
 	const currentComments = van.state<CommentViewState>({
 		loading: false,
 		posting: false,
@@ -316,16 +319,20 @@ export function createReaderData() {
 		}));
 	});
 
-	const goTo = (index: number) => {
+	const goTo = (index: number, mode: NavigationMode = "jump") => {
 		if (!links.val.length) return;
-		nav.index.val = Math.max(nav.min.val, Math.min(nav.max.val, index));
+		const nextIndex = Math.max(nav.min.val, Math.min(nav.max.val, index));
+		if (nextIndex === nav.index.val) return;
+		navigationMode.val = mode;
+		nav.index.val = nextIndex;
 	};
 
-	const previous = () => goTo(nav.index.val - 1);
-	const next = () => goTo(nav.index.val + 1);
+	const previous = () => goTo(nav.index.val - 1, "previous");
+	const next = () => goTo(nav.index.val + 1, "next");
 
 	return {
 		links,
+		navigationMode,
 		chapterEntries,
 		currentLink,
 		currentChapterStartUrl,

@@ -1,7 +1,13 @@
 import van, { type State } from "vanjs-core";
 import { nav } from "../core/nav";
 import { updateCurrentPage } from "../core/queue";
+import {
+	normalizeChapterUrl,
+	readChapterScrollRecord,
+	writeChapterScrollRecord,
+} from "../core/scroll";
 import { BottomControls, TopBar } from "./controls";
+import type { NavigationMode } from "./reader-data";
 import { OverlayBackdrop, OverlayPanels } from "./overlays";
 import { createReaderData } from "./reader-data";
 import type { UiState } from "./state";
@@ -76,6 +82,15 @@ function currentTypefaceClass(ui: UiState) {
 
 export function Reader(open: State<boolean>, ui: UiState) {
 	const data = createReaderData();
+	let restoreQueued = false;
+	let suppressScrollPersistence = false;
+	let lastChapterUrl: string | undefined;
+	let pendingRestore:
+		| {
+				chapterUrl: string;
+				mode: NavigationMode;
+		  }
+		| undefined;
 
 	van.derive(() => {
 		void updateCurrentPage(nav.index.val);
@@ -109,6 +124,56 @@ export function Reader(open: State<boolean>, ui: UiState) {
 
 	const onInteraction = () => {
 		resetControlsTimeout();
+	};
+
+	const currentChapterUrl = van.derive(() => {
+		const chapterUrl = data.currentChapterStartUrl.val ?? data.currentLink.val?.url;
+		return chapterUrl ? normalizeChapterUrl(chapterUrl) : undefined;
+	});
+
+	const persistCurrentScroll = (chapterUrl = currentChapterUrl.val) => {
+		if (suppressScrollPersistence || !chapterUrl || !readerSurface.isConnected) {
+			return;
+		}
+		const maxScrollTop = Math.max(
+			0,
+			readerSurface.scrollHeight - readerSurface.clientHeight,
+		);
+		writeChapterScrollRecord(
+			chapterUrl,
+			maxScrollTop > 0 ? readerSurface.scrollTop / maxScrollTop : 0,
+		);
+	};
+
+	const scheduleRestore = () => {
+		if (restoreQueued || !pendingRestore) return;
+		restoreQueued = true;
+		requestAnimationFrame(() => {
+			restoreQueued = false;
+			if (!pendingRestore) return;
+			if (pendingRestore.chapterUrl !== currentChapterUrl.val) return;
+			const content = data.currentContent.val;
+			const status = data.currentStatus.val;
+			if (status.loading && !content.length) {
+				scheduleRestore();
+				return;
+			}
+			const record = readChapterScrollRecord(pendingRestore.chapterUrl);
+			const maxScrollTop = Math.max(
+				0,
+				readerSurface.scrollHeight - readerSurface.clientHeight,
+			);
+			suppressScrollPersistence = true;
+			readerSurface.scrollTop = record
+				? record.ratio * maxScrollTop
+				: pendingRestore.mode === "previous"
+					? maxScrollTop
+					: 0;
+			pendingRestore = undefined;
+			requestAnimationFrame(() => {
+				suppressScrollPersistence = false;
+			});
+		});
 	};
 
 	const textContentRoot = div({
@@ -163,10 +228,35 @@ export function Reader(open: State<boolean>, ui: UiState) {
 					.filter(Boolean)
 					.join(" "),
 			style: readerStyle(ui),
-			onscroll: onInteraction,
+			onscroll: () => {
+				onInteraction();
+				persistCurrentScroll();
+			},
 		},
 		textContentRoot,
 	);
+
+	van.derive(() => {
+		const chapterUrl = currentChapterUrl.val;
+		const mode = data.navigationMode.val;
+		if (!chapterUrl) return;
+		if (lastChapterUrl && lastChapterUrl !== chapterUrl) {
+			persistCurrentScroll(lastChapterUrl);
+		}
+		if (lastChapterUrl !== chapterUrl) {
+			lastChapterUrl = chapterUrl;
+			pendingRestore = { chapterUrl, mode };
+			scheduleRestore();
+		}
+	});
+
+	van.derive(() => {
+		currentChapterUrl.val;
+		data.currentContent.val;
+		data.currentStatus.val.loading;
+		data.currentStatus.val.error;
+		scheduleRestore();
+	});
 
 	return div(
 		{
