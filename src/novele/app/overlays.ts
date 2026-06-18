@@ -452,7 +452,8 @@ function settingsPanel(ui: UiState) {
 
 function commentStatusText(data: ReaderData) {
 	const state = data.currentComments.val;
-	if (state.loading) return `Loading ${state.refs.length} comment page(s)...`;
+	if (state.loading && !state.items.length)
+		return `Loading ${state.refs.length} comment page(s)...`;
 	if (!state.supported)
 		return "No site comment section was found for this page.";
 	if (!state.items.length) return "No comments yet.";
@@ -539,6 +540,22 @@ export function OverlayPanels(
 		}
 
 		commentsRoot.replaceChildren(
+			...(state.loading
+				? [
+						div(
+							{ class: nameMap.commentItem },
+							div(
+								{ class: nameMap.commentMeta },
+								span({ class: nameMap.user }, "Site comments"),
+								span({ class: nameMap.time }, "Loading"),
+							),
+							p(
+								{ class: nameMap.commentText },
+								`Loading ${state.refs.length} comment page(s)...`,
+							),
+						),
+					]
+				: []),
 			...state.items.map((comment) =>
 				div(
 					{ class: nameMap.commentItem },

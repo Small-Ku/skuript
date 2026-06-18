@@ -1,4 +1,8 @@
 import { JobQueue } from "../../util/job-queue";
+import {
+	canUseCurrentDocument,
+	normalizeFetchUrl,
+} from "./extract/hostname-map";
 import { resolvePageChapter } from "./extract/chapters";
 import {
 	type CommentBundle,
@@ -37,8 +41,11 @@ const fetchQueue = new JobQueue<FetchContext, QueueContext, unknown>(
 		if (jobContext.kind === "comment-post") return -1_000_000;
 		const distance = Math.abs(jobContext.orderHint - context.currentOrderHint);
 		if (jobContext.kind === "comment") {
+			if (distance === 0) {
+				return -100 + (jobContext.pageNumber ?? 0) / 1000;
+			}
 			if (jobContext.pageNumber === 1 || distance <= 1) {
-				return 100 + distance + (jobContext.pageNumber ?? 0) / 1000;
+				return 10 + distance + (jobContext.pageNumber ?? 0) / 1000;
 			}
 			return 10_000 + distance + (jobContext.pageNumber ?? 0) / 1000;
 		}
@@ -69,15 +76,21 @@ async function fetchWith429Retry(
 	}
 }
 
-async function fetchPageText(url: string): Promise<string> {
-	if (url === window.location.href) return document.documentElement.outerHTML;
-	const storedPage = peekPage(url);
-	if (storedPage?.raw) {
-		console.debug(`Using cached raw page: ${url}`);
-		return storedPage.raw;
+async function fetchPageText(url: string, bypassCache = false): Promise<string> {
+	const fetchUrl = normalizeFetchUrl(url);
+	if (!bypassCache && fetchUrl === window.location.href) return document.documentElement.outerHTML;
+	if (!bypassCache) {
+		const storedPage = peekPage(url);
+		if (storedPage?.raw) {
+			console.debug(`Using cached raw page: ${url}`);
+			return storedPage.raw;
+		}
 	}
 	for (;;) {
-		const response = await fetchWith429Retry(url, { cache: "force-cache" });
+		const response = await fetchWith429Retry(
+			fetchUrl,
+			bypassCache ? { cache: "no-store" } : { cache: "force-cache" },
+		);
 		if (!response.ok) {
 			throw new Error("ERROR", { cause: response });
 		}
@@ -91,9 +104,12 @@ async function queueFetch(
 	requireDocument = false,
 	context: Pick<FetchContext, "kind" | "pageNumber"> = { kind: "page" },
 ): Promise<void> {
-	const cachedPage = peekPage(url);
-	if (cachedPage?.raw || cachedPage?.dom) return;
-	if (cachedPage?.slices?.length && !requireDocument) return;
+	const isCommentPost = context.kind === "comment-post";
+	if (!isCommentPost) {
+		const cachedPage = peekPage(url);
+		if (cachedPage?.raw || cachedPage?.dom) return;
+		if (cachedPage?.slices?.length && !requireDocument) return;
+	}
 
 	const existing = inFlightFetches.get(url);
 	if (existing) return existing;
@@ -101,11 +117,11 @@ async function queueFetch(
 	const promise = fetchQueue.addJob(
 		async () => {
 			try {
-				if (url === window.location.href) {
+				if (!isCommentPost && canUseCurrentDocument(url)) {
 					registerCurrentPage(url);
 					return;
 				}
-				registerPageRaw(url, await fetchPageText(url));
+				registerPageRaw(url, await fetchPageText(url, isCommentPost));
 			} finally {
 				inFlightFetches.delete(url);
 			}

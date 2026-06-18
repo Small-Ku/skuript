@@ -33,7 +33,6 @@ function normalizeCommentBaseUrl(url: string): string {
 }
 
 function commentPageUrl(baseUrl: string, pageNumber: number) {
-	if (pageNumber === 1) return baseUrl;
 	return `${baseUrl}/comment-page-${pageNumber}/`;
 }
 
