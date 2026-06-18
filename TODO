@@ -2,17 +2,17 @@
 
 1. [ ] Support extract page links from pages
     1. [x] From link indexes
-    2. [x] From individual pages
+    2. [ ] From individual pages
     3. [ ] Use tree walker to guess new sites
     4. [ ] Sites need to be ported from old scripts
-        - [ ] https://www.52shuku.vip -> https://www.52shuku.net/chongsheng/hvCE_2.html
+        - [x] https://www.52shuku.vip -> https://www.52shuku.net/chongsheng/hvCE_2.html
         - [ ] https://www.52shuwu.net -> https://www.52shuwu.top/chongsheng/57099_2.html
         - [ ] https://www.banxia.la -> https://www.xbanxia.cc/books/417735/72653220.html
         - [ ] https://www.sunzhinan.com -> https://www.sunzhinan.com/read/21210/4399731.html
         - [ ] https://www.256wx.org -> https://www.256wx.org/read/184867/1.html
-        - [ ] https://www.zhenhunxiaoshuo.com -> https://www.zhenhunxiaoshuo.com/324848.html
-            - [ ] Pages
-            - [ ] Comments
+        - [x] https://www.zhenhunxiaoshuo.com -> https://www.zhenhunxiaoshuo.com/324848.html
+            - [x] Pages
+            - [x] Comments
 2. [ ] Support download pages
     1. [x] Parallel download
     2. [ ] Deal with cloudflare (maybe iframe)
@@ -21,14 +21,14 @@
     5. [ ] Support Modified-Since to reduce request
     6. [ ] Use `requestIdleCallback()` reduce lagging
     7. [ ] Deal with unnecessary parts, like contents after `.pagination2` in 52shuku
-3. [ ] Guess chapters from pages
-    1. [ ] Page as a title
-    2. [ ] Chapter title in a page middle
-    3. [ ] Show as `<h1>`
-4. [ ] Expandable panel
-    1. [ ] Settings
-    2. [ ] Chapter list
-    3. [ ] Comments
+3. [x] Guess chapters from pages
+    1. [x] Page as a title
+    2. [x] Chapter title in a page middle
+    3. [x] Show as `<h1>`
+4. [x] Expandable panel
+    1. [x] Settings
+    2. [x] Chapter list
+    3. [x] Comments
     4. [ ] Page list
     5. [ ] Book info
 5. [ ] Misc
