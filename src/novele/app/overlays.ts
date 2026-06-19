@@ -6,6 +6,11 @@ import van, {
 } from "vanjs-core";
 import { IconClose, IconTune } from "../../style/icon";
 import {
+	COMMENT_FRAME_BRIDGE_CALLBACK_NAME,
+	type CommentFrameBridgeMessage,
+	isCommentFrameBridgeMessage,
+} from "../core/comment-frame-bridge";
+import {
 	CLOUDFLARE_CHALLENGE_MESSAGE,
 	COMMENT_MISSING_AFTER_REDIRECT_MESSAGE,
 	COMMENT_RATE_LIMIT_MESSAGE,
@@ -43,6 +48,11 @@ const { aside, button, div, form, h2, iframe, input, nav, p, span, textarea } =
 
 type UiState = ReturnType<typeof createUiState>;
 type ReaderData = ReturnType<typeof createReaderData>;
+type WindowWithCommentFrameBridge = Window & {
+	[COMMENT_FRAME_BRIDGE_CALLBACK_NAME]?: (
+		message: CommentFrameBridgeMessage,
+	) => void;
+};
 
 const [typefaceReader, typefaceUi, typefaceLiterata, typefaceCustom] =
 	TYPEFACE_VALUES;
@@ -548,6 +558,28 @@ export function OverlayPanels(
 		clearCommentPostTimeout();
 	};
 
+	const handleCommentSubmissionFailure = (error: unknown) => {
+		const message = error instanceof Error ? error.message : `${error}`;
+		if (message === CLOUDFLARE_CHALLENGE_MESSAGE) {
+			clearCommentPostTimeout();
+			data.failCurrentCommentSubmission(error);
+			console.info(
+				"[novele] comment submission waiting for Cloudflare verification",
+			);
+			return;
+		}
+
+		finalizeCommentPost();
+		data.failCurrentCommentSubmission(error);
+		resetCommentFrame();
+		if (message === COMMENT_MISSING_AFTER_REDIRECT_MESSAGE) {
+			console.warn("[novele] redirected comment missing from returned page");
+		}
+		if (message === COMMENT_RATE_LIMIT_MESSAGE) {
+			console.warn("[novele] comment request hit HTTP 429");
+		}
+	};
+
 	const getCommentFrameResponseStatus = (): number | undefined => {
 		try {
 			const navigationEntry = commentChallengeFrame.contentWindow?.performance
@@ -564,10 +596,15 @@ export function OverlayPanels(
 		}
 	};
 
-	commentChallengeFrame.addEventListener("load", () => {
+	const handleCommentFrameResult = (
+		source: "load" | "message",
+		message?: CommentFrameBridgeMessage,
+	) => {
 		if (!pendingCommentRefs) return;
 		const responseStatus = getCommentFrameResponseStatus();
-		console.debug("[novele] comment iframe load", {
+		console.debug(`[novele] comment iframe ${source}`, {
+			bridgeCloudflare: message?.isCloudflareChallenge,
+			bridgeHref: message?.href,
 			url: commentChallengeFrame.contentWindow?.location.href,
 			responseStatus,
 		});
@@ -575,9 +612,7 @@ export function OverlayPanels(
 			const doc = commentChallengeFrame.contentDocument;
 			const finalUrl = commentChallengeFrame.contentWindow?.location.href;
 			if (!doc || !finalUrl) {
-				throw new Error(
-					"Comment submission iframe did not expose a readable document.",
-				);
+				return;
 			}
 			const bundle = resolveCommentPostResult(
 				pendingCommentRefs,
@@ -591,20 +626,32 @@ export function OverlayPanels(
 			ui.commentDraft.val = "";
 			resetCommentFrame();
 		} catch (error) {
-			finalizeCommentPost();
-			data.failCurrentCommentSubmission(error);
-			const message = error instanceof Error ? error.message : `${error}`;
-			if (message !== CLOUDFLARE_CHALLENGE_MESSAGE) {
-				resetCommentFrame();
-			}
-			if (message === COMMENT_MISSING_AFTER_REDIRECT_MESSAGE) {
-				console.warn("[novele] redirected comment missing from returned page");
-			}
-			if (message === COMMENT_RATE_LIMIT_MESSAGE) {
-				console.warn("[novele] comment request hit HTTP 429");
-			}
-			console.debug("[novele] comment iframe load failed", error);
+			handleCommentSubmissionFailure(error);
+			console.debug(`[novele] comment iframe ${source} failed`, error);
 		}
+	};
+
+	(window as WindowWithCommentFrameBridge)[COMMENT_FRAME_BRIDGE_CALLBACK_NAME] =
+		(message) => {
+			if (
+				commentChallengeFrame.contentWindow &&
+				commentChallengeFrame.contentWindow !== window
+			) {
+				handleCommentFrameResult("message", message);
+			}
+		};
+
+	commentChallengeFrame.addEventListener("load", () => {
+		window.setTimeout(() => {
+			handleCommentFrameResult("load");
+		}, 0);
+	});
+
+	window.addEventListener("message", (event: MessageEvent) => {
+		if (event.origin !== window.location.origin) return;
+		if (event.source !== commentChallengeFrame.contentWindow) return;
+		if (!isCommentFrameBridgeMessage(event.data)) return;
+		handleCommentFrameResult("message", event.data);
 	});
 
 	const onCommentSubmit = (event: Event) => {
@@ -793,6 +840,7 @@ export function OverlayPanels(
 								return (
 									comments.isLoading ||
 									comments.posting ||
+									comments.waitingForCloudflareVerification ||
 									!comments.postId ||
 									!ui.commentDraft.val.trim()
 								);
@@ -800,10 +848,10 @@ export function OverlayPanels(
 							type: "submit",
 						},
 						() =>
-							data.currentComments.val.posting
-								? "POSTING"
-								: data.currentComments.val.needsCloudflareVerification
-									? "RETRY"
+							data.currentComments.val.needsCloudflareVerification
+								? "VERIFY"
+								: data.currentComments.val.posting
+									? "POSTING"
 									: "POST",
 					),
 				),

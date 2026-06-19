@@ -21,7 +21,7 @@ export type CommentPostResult = CommentBundle & {
 export const ZHENHUN_COMMENT_POST_URL =
 	"https://www.zhenhunxiaoshuo.com/wp-comments-post.php";
 export const CLOUDFLARE_CHALLENGE_MESSAGE =
-	"Blocked by Cloudflare. Complete the verification below, then post again.";
+	"Blocked by Cloudflare. Complete the verification below and Novele will keep watching for the original comment result.";
 export const COMMENT_RATE_LIMIT_MESSAGE =
 	"The site rate-limited this comment request with HTTP 429. Wait a bit and try again. Your draft was kept.";
 export const COMMENT_MISSING_AFTER_REDIRECT_MESSAGE =
@@ -203,7 +203,7 @@ export function getCachedCommentBundle(refs: CommentPageRef[]): CommentBundle {
 	};
 }
 
-function isCloudflareChallengeDocument(doc: Document): boolean {
+export function isCloudflareChallengeDocument(doc: Document): boolean {
 	return (
 		doc.title === "Just a moment..." ||
 		Boolean(

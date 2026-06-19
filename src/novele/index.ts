@@ -1,10 +1,12 @@
 import van from "vanjs-core";
 import { FabApp } from "./app/main";
 import { code } from "./app/styles/style.module.scss";
+import { installCommentFrameBridge } from "./core/comment-frame-bridge";
 
 const { div, style } = van.tags;
 
 if (window.top !== window.self) {
+	installCommentFrameBridge();
 	console.debug("[novele] skipped iframe bootstrap", {
 		href: window.location.href,
 	});

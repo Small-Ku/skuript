@@ -39,6 +39,7 @@ type CommentViewState = {
 	postId?: string;
 	error?: string;
 	needsCloudflareVerification: boolean;
+	waitingForCloudflareVerification: boolean;
 };
 
 type PreparedCommentSubmission = {
@@ -101,6 +102,7 @@ export function createReaderData() {
 		refs: [],
 		items: [],
 		needsCloudflareVerification: false,
+		waitingForCloudflareVerification: false,
 	});
 	const globalError = van.state<string | null>(null);
 	let started = false;
@@ -143,6 +145,7 @@ export function createReaderData() {
 				refs: [],
 				items: [],
 				needsCloudflareVerification: false,
+				waitingForCloudflareVerification: false,
 			};
 			return;
 		}
@@ -155,6 +158,7 @@ export function createReaderData() {
 			refs,
 			items: [],
 			needsCloudflareVerification: false,
+			waitingForCloudflareVerification: false,
 		};
 		void queueCommentFetch(refs, orderHint, (_ref, error, bundle) => {
 			if (error)
@@ -168,6 +172,7 @@ export function createReaderData() {
 				items: bundle.items,
 				postId: bundle.postId,
 				error: errors[0],
+				waitingForCloudflareVerification: false,
 			};
 		}).then((bundle) => {
 			if (key !== commentRequestKey) return;
@@ -180,6 +185,7 @@ export function createReaderData() {
 				postId: bundle.postId,
 				error: errors[0],
 				needsCloudflareVerification: false,
+				waitingForCloudflareVerification: false,
 			};
 		});
 	};
@@ -312,6 +318,7 @@ export function createReaderData() {
 			posting: true,
 			error: undefined,
 			needsCloudflareVerification: false,
+			waitingForCloudflareVerification: false,
 		};
 		return {
 			author: normalizedAuthor,
@@ -328,15 +335,18 @@ export function createReaderData() {
 			items: bundle.items,
 			postId: bundle.postId,
 			needsCloudflareVerification: false,
+			waitingForCloudflareVerification: false,
 		};
 	};
 	const failCurrentCommentSubmission = (error: unknown) => {
 		const message = error instanceof Error ? error.message : `${error}`;
 		currentComments.val = {
 			...currentComments.val,
-			posting: false,
+			posting: message === CLOUDFLARE_CHALLENGE_MESSAGE,
 			error: message,
 			needsCloudflareVerification: message === CLOUDFLARE_CHALLENGE_MESSAGE,
+			waitingForCloudflareVerification:
+				message === CLOUDFLARE_CHALLENGE_MESSAGE,
 		};
 	};
 	const currentStatus = van.derive(() => {
