@@ -34,6 +34,33 @@
 			opacity $duration-medium2 $easing-standard;
 	}
 
+	.compactBottomBar {
+		right: 0;
+		left: 0;
+		justify-content: center;
+		padding-inline: max(0.75em, env(safe-area-inset-left))
+			max(0.75em, env(safe-area-inset-right));
+	}
+
+	.desktopBottomSizer {
+		position: fixed;
+		right: var(--ui-bot-right);
+		bottom: var(--ui-bot-bot);
+		z-index: -1;
+		display: flex;
+		align-items: center;
+		gap: var(--ui-bot-gap);
+		visibility: hidden;
+		pointer-events: none;
+		white-space: nowrap;
+	}
+
+	.desktopBottomGroup {
+		display: flex;
+		align-items: center;
+		gap: var(--ui-bot-gap);
+	}
+
 	.visible {
 		transform: translateY(0);
 		opacity: 1;
@@ -127,5 +154,51 @@
 			left: var(--ui-bot-right);
 			flex-direction: row-reverse;
 		}
+
+		.desktopBottomGroup {
+			flex-direction: row-reverse;
+		}
+
+		.desktopBottomSizer {
+			right: auto;
+			left: var(--ui-bot-right);
+			flex-direction: row-reverse;
+		}
+	}
+
+	.mobileBottomGroup {
+		width: min(
+			100%,
+			calc(
+				100vw - max(0.75em, env(safe-area-inset-left)) -
+					max(0.75em, env(safe-area-inset-right))
+			)
+		);
+		max-width: 100%;
+		padding-inline: 0.65em;
+		gap: 0.25em;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: none;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior-x: contain;
+		justify-content: flex-start;
+
+		&::-webkit-scrollbar {
+			display: none;
+		}
+	}
+
+	.mobileBottomGroup.compactStartPad {
+		padding-inline-start: 0.65em;
+	}
+
+	.mobileBottomGroup.compactEndPad {
+		padding-inline-end: 0.65em;
+	}
+
+	.mobileBottomGroup .navButton {
+		flex: 0 0 auto;
+		padding: 0.4em;
 	}
 }

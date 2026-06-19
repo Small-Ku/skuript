@@ -19,6 +19,54 @@ function activeClass(active: boolean, className: string) {
 	return active ? className : "";
 }
 
+function overlayButton(
+	ui: UiState,
+	name: "chapters" | "comments" | "settings",
+	label: string,
+	icon: Node,
+	toggleOverlay: (name: "chapters" | "comments" | "settings") => void,
+) {
+	return button(
+		{
+			class: () =>
+				[
+					nameMap.navButton,
+					activeClass(ui.activeOverlay.val === name, nameMap.active),
+				]
+					.filter(Boolean)
+					.join(" "),
+			onclick: (event) => {
+				event.stopPropagation();
+				toggleOverlay(name);
+			},
+			title: label,
+		},
+		icon,
+	);
+}
+
+function arrowButton(
+	label: string,
+	direction: HorizonDir,
+	onclick: (event: MouseEvent) => void,
+	disabled: () => boolean,
+) {
+	return button(
+		{
+			class: nameMap.navButton,
+			onclick,
+			disabled,
+			title: label,
+		},
+		IconChevron(direction),
+	);
+}
+
+function parsePixelValue(value: string) {
+	const parsed = Number.parseFloat(value);
+	return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export function TopBar(ui: UiState, data: ReaderData, open: State<boolean>) {
 	return header(
 		{
@@ -44,6 +92,10 @@ export function BottomControls(
 	data: ReaderData,
 	open: State<boolean>,
 ) {
+	const useCompactLayout = van.state(false);
+	let desktopSizerElement: HTMLDivElement | undefined;
+	let layoutRaf: number | undefined;
+
 	const toggleOverlay = (name: "chapters" | "comments" | "settings") => {
 		ui.activeOverlay.val = ui.activeOverlay.val === name ? null : name;
 	};
@@ -60,107 +112,164 @@ export function BottomControls(
 		}
 	});
 
-	const chapterButton = button(
-		{
-			class: () =>
-				[
-					nameMap.navButton,
-					activeClass(ui.activeOverlay.val === "chapters", nameMap.active),
-				]
-					.filter(Boolean)
-					.join(" "),
-			onclick: (event) => {
-				event.stopPropagation();
-				toggleOverlay("chapters");
-			},
-			title: "Chapters",
-		},
-		IconToc(),
-	);
+	const isPrevDisabled = () =>
+		data.links.val.length === 0 || data.currentLink.val === data.links.val[0];
+	const isNextDisabled = () =>
+		data.links.val.length === 0 ||
+		data.currentLink.val === data.links.val[data.links.val.length - 1];
 
-	const commentButton = button(
-		{
-			class: () =>
-				[
-					nameMap.navButton,
-					activeClass(ui.activeOverlay.val === "comments", nameMap.active),
-				]
-					.filter(Boolean)
-					.join(" "),
-			onclick: (event) => {
-				event.stopPropagation();
-				toggleOverlay("comments");
-			},
-			title: "Comments",
-		},
-		IconComment(),
-	);
-
-	const settingsButton = button(
-		{
-			class: () =>
-				[
-					nameMap.navButton,
-					activeClass(ui.activeOverlay.val === "settings", nameMap.active),
-				]
-					.filter(Boolean)
-					.join(" "),
-			onclick: (event) => {
-				event.stopPropagation();
-				toggleOverlay("settings");
-			},
-			title: "Preferences",
-		},
-		IconTune(),
-	);
-
-	return footer(
-		{
-			class: () =>
-				[nameMap.bottomBar, isVisible() ? nameMap.visible : ""]
-					.filter(Boolean)
-					.join(" "),
-		},
+	const desktopOverlayGroup = () =>
 		div(
 			{
 				class: `${nameMap.glass} ${nameMap.glassNav} ${nameMap.compactStartPad} ${nameMap.compactEndPad}`,
 			},
-			chapterButton,
-			() => (data.currentCommentsAvailable.val ? commentButton : ""),
-			settingsButton,
-		),
+			overlayButton(ui, "chapters", "Chapters", IconToc(), toggleOverlay),
+			() =>
+				data.currentCommentsAvailable.val
+					? overlayButton(
+							ui,
+							"comments",
+							"Comments",
+							IconComment(),
+							toggleOverlay,
+						)
+					: "",
+			overlayButton(ui, "settings", "Preferences", IconTune(), toggleOverlay),
+		);
+
+	const desktopArrowGroup = () =>
 		div(
 			{
 				class: `${nameMap.glass} ${nameMap.glassNav} ${nameMap.glassArrows} ${nameMap.compactStartPad} ${nameMap.compactEndPad}`,
 			},
-			button(
-				{
-					class: nameMap.navButton,
-					onclick: (event) => {
-						event.stopPropagation();
-						data.previous();
-					},
-					disabled: () =>
-						data.links.val.length === 0 ||
-						data.currentLink.val === data.links.val[0],
-					title: "Previous chapter",
+			arrowButton(
+				"Previous chapter",
+				HorizonDir.Left,
+				(event) => {
+					event.stopPropagation();
+					data.previous();
 				},
-				IconChevron(HorizonDir.Left),
+				isPrevDisabled,
 			),
-			button(
-				{
-					class: nameMap.navButton,
-					onclick: (event) => {
-						event.stopPropagation();
-						data.next();
-					},
-					disabled: () =>
-						data.links.val.length === 0 ||
-						data.currentLink.val === data.links.val[data.links.val.length - 1],
-					title: "Next chapter",
+			arrowButton(
+				"Next chapter",
+				HorizonDir.Right,
+				(event) => {
+					event.stopPropagation();
+					data.next();
 				},
-				IconChevron(HorizonDir.Right),
+				isNextDisabled,
 			),
-		),
+		);
+
+	const mobileControlGroup = () =>
+		div(
+			{
+				class: `${nameMap.mobileBottomGroup} ${nameMap.glass} ${nameMap.glassNav} ${nameMap.compactStartPad} ${nameMap.compactEndPad}`,
+			},
+			arrowButton(
+				"Previous chapter",
+				HorizonDir.Left,
+				(event) => {
+					event.stopPropagation();
+					data.previous();
+				},
+				isPrevDisabled,
+			),
+			overlayButton(ui, "chapters", "Chapters", IconToc(), toggleOverlay),
+			() =>
+				data.currentCommentsAvailable.val
+					? overlayButton(
+							ui,
+							"comments",
+							"Comments",
+							IconComment(),
+							toggleOverlay,
+						)
+					: "",
+			overlayButton(ui, "settings", "Preferences", IconTune(), toggleOverlay),
+			arrowButton(
+				"Next chapter",
+				HorizonDir.Right,
+				(event) => {
+					event.stopPropagation();
+					data.next();
+				},
+				isNextDisabled,
+			),
+		);
+
+	const desktopControlGroup = () =>
+		div(
+			{
+				class: nameMap.desktopBottomGroup,
+			},
+			desktopOverlayGroup(),
+			desktopArrowGroup(),
+		);
+
+	const updateLayoutMode = () => {
+		if (!desktopSizerElement?.isConnected) {
+			return;
+		}
+		const barStyle = window.getComputedStyle(desktopSizerElement);
+		const anchorOffset = parsePixelValue(
+			ui.panelPosition.val === "left" ? barStyle.left : barStyle.right,
+		);
+		const availableWidth = Math.max(0, window.innerWidth - anchorOffset);
+		const requiredWidth = Math.ceil(
+			desktopSizerElement.getBoundingClientRect().width,
+		);
+		useCompactLayout.val = requiredWidth > availableWidth;
+	};
+
+	const scheduleLayoutModeUpdate = () => {
+		if (layoutRaf !== undefined) {
+			cancelAnimationFrame(layoutRaf);
+		}
+		layoutRaf = requestAnimationFrame(() => {
+			layoutRaf = undefined;
+			updateLayoutMode();
+		});
+	};
+
+	van.derive(() => {
+		data.currentCommentsAvailable.val;
+		ui.panelPosition.val;
+		ui.interfaceScale.val;
+		open.val;
+		scheduleLayoutModeUpdate();
+	});
+
+	const desktopSizer = div(
+		{
+			class: nameMap.desktopBottomSizer,
+		},
+		desktopOverlayGroup(),
+		desktopArrowGroup(),
 	);
+	desktopSizerElement = desktopSizer;
+
+	const bottomBar = footer(
+		{
+			class: () =>
+				[
+					nameMap.bottomBar,
+					isVisible() ? nameMap.visible : "",
+					useCompactLayout.val ? nameMap.compactBottomBar : "",
+				]
+					.filter(Boolean)
+					.join(" "),
+		},
+		() => (useCompactLayout.val ? mobileControlGroup() : desktopControlGroup()),
+	);
+
+	const resizeObserver = new ResizeObserver(() => {
+		scheduleLayoutModeUpdate();
+	});
+	resizeObserver.observe(desktopSizer);
+	window.addEventListener("resize", scheduleLayoutModeUpdate);
+	scheduleLayoutModeUpdate();
+
+	return div(desktopSizer, bottomBar);
 }
