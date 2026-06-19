@@ -7,7 +7,15 @@ import { type Link, resolveLinks, subscribeLinks } from "../core/extract/links";
 import { findPage } from "../core/extract/pages";
 import type { CommentItem, CommentPageRef } from "../core/extract/storage";
 import { nav } from "../core/nav";
-import { queueCatalogFetch, queueCommentFetch } from "../core/queue";
+import {
+	readSessionChapterProgress,
+	writeSessionChapterProgress,
+} from "../core/progress";
+import {
+	queueCatalogFetch,
+	queueCommentFetch,
+	updateCurrentPage,
+} from "../core/queue";
 
 type ChapterFetchState = {
 	loading: boolean;
@@ -68,6 +76,18 @@ function getResolvedChapter(link: Link) {
 	} catch {
 		return undefined;
 	}
+}
+
+function findChapterLinkIndex(nextLinks: Link[], chapterUrl: string) {
+	const normalizedTarget = normalizeReaderUrl(chapterUrl);
+	const exactMatchIndex = nextLinks.findIndex(
+		(link) => normalizeReaderUrl(link.url) === normalizedTarget,
+	);
+	if (exactMatchIndex >= 0) return exactMatchIndex;
+	return nextLinks.findIndex((link) => {
+		const startUrl = getResolvedChapter(link)?.startUrl;
+		return startUrl ? normalizeReaderUrl(startUrl) === normalizedTarget : false;
+	});
 }
 
 export function createReaderData() {
@@ -177,17 +197,25 @@ export function createReaderData() {
 		nav.min.val = 0;
 		nav.max.val = Math.max(0, nextLinks.length - 1);
 		const currentUrl = normalizeReaderUrl(window.location.href);
+		const storedProgress = readSessionChapterProgress();
+		const storedIndex = storedProgress
+			? findChapterLinkIndex(nextLinks, storedProgress.chapterUrl)
+			: -1;
 		const currentPageIndex = nextLinks.findIndex(
 			(link) => normalizeReaderUrl(link.url) === currentUrl,
 		);
-		if (currentPageIndex >= 0) {
+		if (storedIndex >= 0) {
+			nav.index.val = storedIndex;
+		} else if (currentPageIndex >= 0) {
 			nav.index.val = currentPageIndex;
 		}
 		if (nav.index.val > nav.max.val) {
 			nav.index.val = nav.max.val;
 		}
 		if (started) {
-			queueCatalog(nextLinks);
+			void updateCurrentPage(nav.index.val).then(() => {
+				queueCatalog(nextLinks);
+			});
 		}
 	});
 
@@ -207,6 +235,16 @@ export function createReaderData() {
 		const link = currentLink.val;
 		if (!link) return undefined;
 		return getResolvedChapter(link)?.startUrl ?? link.url;
+	});
+	van.derive(() => {
+		const link = currentLink.val;
+		const chapterUrl = currentChapterStartUrl.val;
+		if (!link || !chapterUrl) return;
+		writeSessionChapterProgress({
+			chapterUrl,
+			linkIndex: nav.index.val,
+			title: getPageTitle(link),
+		});
 	});
 	const currentCommentsAvailable = van.derive(() => {
 		fetchStates.val;
