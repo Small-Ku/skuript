@@ -20,7 +20,12 @@ import {
 } from "./overlay-shared";
 import nameMap from "./styles/style.module.scss";
 
-const { aside, div, form, iframe, input, p, span, textarea, button } = van.tags;
+const { aside, button, div, form, iframe, input, p, span, textarea } = van.tags;
+
+type CommentTreeNode = {
+	item: ReaderData["currentComments"]["val"]["items"][number];
+	replies: CommentTreeNode[];
+};
 
 type WindowWithCommentFrameBridge = Window & {
 	[COMMENT_FRAME_BRIDGE_CALLBACK_NAME]?: (
@@ -43,6 +48,42 @@ function commentHeaderTail(data: ReaderData) {
 		{ class: nameMap.commentTicker },
 		() => `(${data.currentComments.val.items.length})`,
 	);
+}
+
+function stripCommentIdPrefix(commentId: string | null) {
+	return commentId?.replace(/^comment-/, "") ?? "";
+}
+
+function buildCommentTree(
+	items: ReaderData["currentComments"]["val"]["items"],
+) {
+	const nodes = new Map<string, CommentTreeNode>();
+	const roots: CommentTreeNode[] = [];
+	for (const item of items) {
+		if (!item.id) continue;
+		nodes.set(item.id, {
+			item,
+			replies: [],
+		});
+	}
+	for (const item of items) {
+		const node = item.id ? nodes.get(item.id) : undefined;
+		if (!node) continue;
+		const parentNode = item.parentId ? nodes.get(item.parentId) : undefined;
+		if (parentNode && parentNode !== node) {
+			parentNode.replies.push(node);
+			continue;
+		}
+		roots.push(node);
+	}
+	for (const item of items) {
+		if (item.id) continue;
+		roots.push({
+			item,
+			replies: [],
+		});
+	}
+	return roots;
 }
 
 export function CommentsPanel(
@@ -73,6 +114,12 @@ export function CommentsPanel(
 	let pendingCommentRefs: CommentPageRef[] | null = null;
 	let commentPostTimeoutId: number | null = null;
 	let pendingScrollCommentId: string | null = null;
+	const hiddenCommentParentInput = input({
+		type: "hidden",
+		name: "comment_parent",
+		value: () => stripCommentIdPrefix(ui.replyingToCommentId.val),
+	}) as HTMLInputElement;
+
 	const authorInputElement = input({
 		class: nameMap.textInput,
 		type: "text",
@@ -87,10 +134,11 @@ export function CommentsPanel(
 			data.currentComments.val.posting ||
 			!data.currentComments.val.postId,
 	}) as HTMLInputElement;
+
 	const commentInputElement = textarea({
-		class: nameMap.textInput,
+		class: nameMap.commentTextarea,
 		name: "comment",
-		placeholder: "Add a comment...",
+		placeholder: "Type comment...",
 		value: () => ui.commentDraft.val,
 		oninput: (event: Event) => {
 			ui.commentDraft.val = (event.target as HTMLTextAreaElement).value;
@@ -180,6 +228,7 @@ export function CommentsPanel(
 			data.completeCurrentCommentSubmission(bundle);
 			pendingScrollCommentId = bundle.commentId ?? null;
 			ui.commentDraft.val = "";
+			ui.replyingToCommentId.val = null;
 			resetCommentFrame();
 		} catch (error) {
 			handleCommentSubmissionFailure(error);
@@ -214,6 +263,7 @@ export function CommentsPanel(
 		const prepared = data.prepareCurrentCommentSubmission(
 			ui.commentAuthor.val,
 			ui.commentDraft.val,
+			ui.replyingToCommentId.val,
 		);
 		if (!prepared) {
 			event.preventDefault();
@@ -235,6 +285,69 @@ export function CommentsPanel(
 		ui.commentDraft.val = prepared.text;
 		authorInputElement.value = prepared.author;
 		commentInputElement.value = prepared.text;
+		hiddenCommentParentInput.value = stripCommentIdPrefix(prepared.parentId);
+	};
+
+	const cancelReply = () => {
+		ui.replyingToCommentId.val = null;
+	};
+
+	const startReply = (commentId: string) => {
+		ui.replyingToCommentId.val = commentId;
+	};
+
+	const scrollToReplyTarget = () => {
+		const targetId = ui.replyingToCommentId.val;
+		if (!targetId) return;
+		commentsRoot
+			.querySelector<HTMLElement>(`#${CSS.escape(targetId)}`)
+			?.scrollIntoView({
+				behavior: "smooth",
+				block: "center",
+			});
+	};
+
+	const renderCommentNode = (node: CommentTreeNode, depth = 0): HTMLElement => {
+		const { item, replies } = node;
+		return div(
+			{
+				class:
+					depth > 0
+						? `${nameMap.commentTreeNode} ${nameMap.commentReplyDepth}`
+						: nameMap.commentTreeNode,
+			},
+			div(
+				{
+					class: nameMap.commentItem,
+					id: item.id || undefined,
+				},
+				div(
+					{ class: nameMap.commentMeta },
+					span({ class: nameMap.user }, item.author),
+					span({ class: nameMap.time }, item.time),
+				),
+				...item.text.map((line) => p({ class: nameMap.commentText }, line)),
+				item.id
+					? div(
+							{ class: nameMap.commentActions },
+							button(
+								{
+									class: nameMap.commentActionButton,
+									type: "button",
+									onclick: () => startReply(item.id),
+								},
+								ui.replyingToCommentId.val === item.id ? "Replying" : "Reply",
+							),
+						)
+					: "",
+			),
+			replies.length
+				? div(
+						{ class: nameMap.nestedRepliesList },
+						...replies.map((reply) => renderCommentNode(reply, depth + 1)),
+					)
+				: "",
+		) as HTMLElement;
 	};
 
 	van.derive(() => {
@@ -243,6 +356,13 @@ export function CommentsPanel(
 
 	van.derive(() => {
 		const state = data.currentComments.val;
+		const replyingToComment =
+			state.items.find(
+				(comment) => comment.id === ui.replyingToCommentId.val,
+			) ?? null;
+		if (ui.replyingToCommentId.val && !replyingToComment) {
+			ui.replyingToCommentId.val = null;
+		}
 		const status = commentStatusText(data);
 		if (status) {
 			commentsRoot.replaceChildren(
@@ -259,6 +379,7 @@ export function CommentsPanel(
 			return;
 		}
 
+		const commentTree = buildCommentTree(state.items);
 		commentsRoot.replaceChildren(
 			...(state.isLoading
 				? [
@@ -276,25 +397,7 @@ export function CommentsPanel(
 						),
 					]
 				: []),
-			...state.items.map((comment) =>
-				div(
-					{
-						class: nameMap.commentItem,
-						id: comment.id || undefined,
-					},
-					div(
-						{ class: nameMap.commentMeta },
-						span({ class: nameMap.user }, comment.author),
-						span({ class: nameMap.time }, comment.time),
-					),
-					...comment.text.map((line) =>
-						p(
-							{ class: nameMap.commentText },
-							comment.parentId ? `> ${line}` : line,
-						),
-					),
-				),
-			),
+			...commentTree.map((comment) => renderCommentNode(comment)),
 		);
 		if (pendingScrollCommentId) {
 			const target = commentsRoot.querySelector<HTMLElement>(
@@ -319,11 +422,47 @@ export function CommentsPanel(
 		div({ class: nameMap.commentsContentWrapper }, commentsRoot),
 		form(
 			{
-				class: nameMap.commentInputArea,
+				class: nameMap.commentFloatingInputArea,
 				method: "POST",
 				action: ZHENHUN_COMMENT_POST_URL,
 				target: commentFrameName,
 				onsubmit: onCommentSubmit,
+			},
+			() => {
+				const replyTarget =
+					data.currentComments.val.items.find(
+						(comment) => comment.id === ui.replyingToCommentId.val,
+					) ?? null;
+				if (!replyTarget) return "";
+				const snippet = replyTarget.text.join(" ").trim();
+				const shortSnippet =
+					snippet.length > 56
+						? `${snippet.slice(0, 56).trimEnd()}...`
+						: snippet;
+				return div(
+					{ class: nameMap.inputRow },
+					div(
+						{
+							class: `${nameMap.replyingBanner} ${nameMap.pillPanel}`,
+							onclick: scrollToReplyTarget,
+						},
+						span(
+							{ class: nameMap.replyingText },
+							`Replying to ${replyTarget.author}`,
+							shortSnippet
+								? span({ class: nameMap.replySnippet }, `: "${shortSnippet}"`)
+								: "",
+						),
+					),
+					button(
+						{
+							class: `${nameMap.cancelReplyButton} ${nameMap.pillPanel}`,
+							type: "button",
+							onclick: cancelReply,
+						},
+						"Cancel",
+					),
+				);
 			},
 			() =>
 				data.currentComments.val.error
@@ -340,17 +479,16 @@ export function CommentsPanel(
 				name: "comment_post_ID",
 				value: () => data.currentComments.val.postId ?? "",
 			}),
-			input({
-				type: "hidden",
-				name: "comment_parent",
-				value: "",
-			}),
-			div({ class: nameMap.inputWrapper }, authorInputElement),
+			hiddenCommentParentInput,
 			div(
-				{ class: nameMap.inputWrapper },
-				commentInputElement,
+				{ class: nameMap.inputRow },
+				div(
+					{ class: `${nameMap.extraInputWrapper} ${nameMap.pillPanel}` },
+					authorInputElement,
+				),
 				button(
 					{
+						class: `${nameMap.postActionButton} ${nameMap.pillPanel}`,
 						disabled: () => {
 							const comments = data.currentComments.val;
 							return (
@@ -369,6 +507,13 @@ export function CommentsPanel(
 							: data.currentComments.val.posting
 								? "POSTING"
 								: "POST",
+				),
+			),
+			div(
+				{ class: nameMap.inputRow },
+				div(
+					{ class: `${nameMap.commentMainInputs} ${nameMap.pillPanel}` },
+					commentInputElement,
 				),
 			),
 		),

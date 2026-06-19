@@ -61,6 +61,7 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	);
 	const commentAuthor = van.state(initial.commentAuthor);
 	const commentDraft = van.state("");
+	const replyingToCommentId = van.state<string | null>(null);
 
 	const effectiveTheme = van.derive<Exclude<ThemeMode, "auto">>(() =>
 		themeMode.val === "auto"
@@ -122,6 +123,7 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 		effectiveTheme,
 		commentAuthor,
 		commentDraft,
+		replyingToCommentId,
 	};
 }
 

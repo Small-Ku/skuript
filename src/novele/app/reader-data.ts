@@ -46,6 +46,7 @@ type PreparedCommentSubmission = {
 	author: string;
 	text: string;
 	refs: CommentPageRef[];
+	parentId: string | null;
 };
 
 export type NavigationMode = "initial" | "previous" | "next" | "jump";
@@ -300,6 +301,7 @@ export function createReaderData() {
 	const prepareCurrentCommentSubmission = (
 		author: string,
 		text: string,
+		parentId: string | null,
 	): PreparedCommentSubmission | null => {
 		const state = currentComments.val;
 		const commentText = text.trim();
@@ -324,6 +326,7 @@ export function createReaderData() {
 			author: normalizedAuthor,
 			text: commentText,
 			refs: state.refs,
+			parentId,
 		};
 	};
 	const completeCurrentCommentSubmission = (bundle: CommentPostResult) => {
