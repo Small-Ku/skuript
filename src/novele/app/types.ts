@@ -61,18 +61,6 @@ export type HueFilter = {
 	enabled: boolean;
 };
 
-export type SiteCommentConfigField = {
-	name: string;
-	placeholder: string;
-	type: "text" | "email";
-};
-
-export type SiteCommentConfig = {
-	id: string;
-	name: string;
-	fields: SiteCommentConfigField[];
-};
-
 export type Option<T extends string> = {
 	label: string;
 	value: T;

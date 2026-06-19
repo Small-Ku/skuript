@@ -8,34 +8,10 @@ import type {
 	PanelPosition,
 	ReadingWidthPreset,
 	SettingsTab,
-	SiteCommentConfig,
 	TextSizePreset,
 	ThemeMode,
 	Typeface,
 } from "./types";
-
-export const siteCommentConfigs: SiteCommentConfig[] = [
-	{ id: "site_basic", name: "Basic Site", fields: [] },
-	{
-		id: "site_anon",
-		name: "Anon Site",
-		fields: [
-			{
-				name: "nickname",
-				placeholder: "Nickname (optional)",
-				type: "text",
-			},
-		],
-	},
-	{
-		id: "site_full",
-		name: "Full Site",
-		fields: [
-			{ name: "nickname", placeholder: "Nickname", type: "text" },
-			{ name: "email", placeholder: "Email (hidden)", type: "email" },
-		],
-	},
-];
 
 export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const controlsVisible = van.state(true);
@@ -70,7 +46,6 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const systemPrefersDark = van.state<boolean>(
 		window.matchMedia("(prefers-color-scheme: dark)").matches,
 	);
-	const activeSiteConfigId = van.state(siteCommentConfigs[2].id);
 	const commentAuthor = van.state(initial.commentAuthor);
 	const commentDraft = van.state("");
 
@@ -108,7 +83,6 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 		panelPosition,
 		systemPrefersDark,
 		effectiveTheme,
-		activeSiteConfigId,
 		commentAuthor,
 		commentDraft,
 	};

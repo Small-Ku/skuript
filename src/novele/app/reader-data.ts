@@ -83,11 +83,10 @@ export function createReaderData() {
 		needsCloudflareVerification: false,
 	});
 	const globalError = van.state<string | null>(null);
-	const started = van.state(false);
+	let started = false;
 	let catalogQueued = false;
 	let commentRequestKey = "";
 	const prefetchedCommentKeys = new Set<string>();
-	let resolvePromise: Promise<Link[]> | null = null;
 
 	const updateFetchState = (url: string, state: ChapterFetchState) => {
 		const next = new Map(fetchStates.val);
@@ -187,16 +186,16 @@ export function createReaderData() {
 		if (nav.index.val > nav.max.val) {
 			nav.index.val = nav.max.val;
 		}
-		if (started.val) {
+		if (started) {
 			queueCatalog(nextLinks);
 		}
 	});
 
 	const start = () => {
-		if (started.val) return;
-		started.val = true;
+		if (started) return;
+		started = true;
 		queueCatalog(links.val);
-		resolvePromise ??= resolveLinks(document).catch((error) => {
+		void resolveLinks(document).catch((error) => {
 			globalError.val = error instanceof Error ? error.message : `${error}`;
 			throw error;
 		});
@@ -348,7 +347,6 @@ export function createReaderData() {
 
 	return {
 		links,
-		started,
 		navigationMode,
 		chapterEntries,
 		currentLink,
@@ -358,7 +356,6 @@ export function createReaderData() {
 		currentContent,
 		currentComments,
 		currentStatus,
-		globalError,
 		loadCurrentComments,
 		prepareCurrentCommentSubmission,
 		completeCurrentCommentSubmission,
