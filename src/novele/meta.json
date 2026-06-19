@@ -1,7 +1,7 @@
 {
 	"name": "novelé",
 	"version": "0.0.1",
-	"description": "New novel reader userscript with Material-like smooth UI",
+	"description": "New novel reader userscript with partially opinionated UI",
 	"namespace": "https://github.com/Small-Ku/skuript",
 	"match": [
 		"https://www.52shuku.vip/*",

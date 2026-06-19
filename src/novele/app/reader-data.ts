@@ -18,7 +18,7 @@ import {
 } from "../core/queue";
 
 type ChapterFetchState = {
-	loading: boolean;
+	isLoading: boolean;
 	error?: string;
 };
 
@@ -31,9 +31,9 @@ type ChapterEntry = {
 };
 
 type CommentViewState = {
-	loading: boolean;
+	isLoading: boolean;
 	posting: boolean;
-	supported: boolean;
+	commentingAvailable: boolean;
 	refs: CommentPageRef[];
 	items: CommentItem[];
 	postId?: string;
@@ -93,11 +93,11 @@ function findChapterLinkIndex(nextLinks: Link[], chapterUrl: string) {
 export function createReaderData() {
 	const links = van.state<Link[]>([]);
 	const fetchStates = van.state<Map<string, ChapterFetchState>>(new Map());
-	const navigationMode = van.state<NavigationMode>("initial");
+	const navMode = van.state<NavigationMode>("initial");
 	const currentComments = van.state<CommentViewState>({
-		loading: false,
+		isLoading: false,
 		posting: false,
-		supported: false,
+		commentingAvailable: false,
 		refs: [],
 		items: [],
 		needsCloudflareVerification: false,
@@ -119,14 +119,14 @@ export function createReaderData() {
 		catalogQueued = true;
 		const nextFetchStates = new Map(fetchStates.val);
 		nextLinks.forEach((link) => {
-			nextFetchStates.set(link.url, { loading: true });
+			nextFetchStates.set(link.url, { isLoading: true });
 		});
 		fetchStates.val = nextFetchStates;
 		void queueCatalogFetch(nextLinks, (link, _index, error) => {
 			const message = error instanceof Error ? error.message : `${error}`;
 			updateFetchState(
 				link.url,
-				error ? { loading: false, error: message } : { loading: false },
+				error ? { isLoading: false, error: message } : { isLoading: false },
 			);
 		});
 	};
@@ -137,9 +137,9 @@ export function createReaderData() {
 		commentRequestKey = key;
 		if (!refs.length) {
 			currentComments.val = {
-				loading: false,
+				isLoading: false,
 				posting: false,
-				supported: false,
+				commentingAvailable: false,
 				refs: [],
 				items: [],
 				needsCloudflareVerification: false,
@@ -149,9 +149,9 @@ export function createReaderData() {
 
 		const errors: string[] = [];
 		currentComments.val = {
-			loading: true,
+			isLoading: true,
 			posting: false,
-			supported: true,
+			commentingAvailable: true,
 			refs,
 			items: [],
 			needsCloudflareVerification: false,
@@ -162,8 +162,8 @@ export function createReaderData() {
 			if (!bundle || key !== commentRequestKey) return;
 			currentComments.val = {
 				...currentComments.val,
-				loading: true,
-				supported: bundle.supported,
+				isLoading: true,
+				commentingAvailable: bundle.commentingAvailable,
 				refs,
 				items: bundle.items,
 				postId: bundle.postId,
@@ -172,9 +172,9 @@ export function createReaderData() {
 		}).then((bundle) => {
 			if (key !== commentRequestKey) return;
 			currentComments.val = {
-				loading: false,
+				isLoading: false,
 				posting: false,
-				supported: bundle.supported,
+				commentingAvailable: bundle.commentingAvailable,
 				refs,
 				items: bundle.items,
 				postId: bundle.postId,
@@ -262,7 +262,7 @@ export function createReaderData() {
 		const link = currentLink.val;
 		if (!link) return [] as string[];
 		try {
-			return findPage(link.url).resolvedChapter?.content ?? [];
+			return findPage(link.url).resolvedChapter?.textLines ?? [];
 		} catch {
 			return [] as string[];
 		}
@@ -297,7 +297,12 @@ export function createReaderData() {
 	): PreparedCommentSubmission | null => {
 		const state = currentComments.val;
 		const commentText = text.trim();
-		if (!state.supported || !state.postId || !commentText || state.posting) {
+		if (
+			!state.commentingAvailable ||
+			!state.postId ||
+			!commentText ||
+			state.posting
+		) {
 			return null;
 		}
 
@@ -316,9 +321,9 @@ export function createReaderData() {
 	};
 	const completeCurrentCommentSubmission = (bundle: CommentPostResult) => {
 		currentComments.val = {
-			loading: false,
+			isLoading: false,
 			posting: false,
-			supported: bundle.supported,
+			commentingAvailable: bundle.commentingAvailable,
 			refs: bundle.refs,
 			items: bundle.items,
 			postId: bundle.postId,
@@ -336,8 +341,8 @@ export function createReaderData() {
 	};
 	const currentStatus = van.derive(() => {
 		const link = currentLink.val;
-		if (!link) return { loading: false, error: globalError.val };
-		return fetchStates.val.get(link.url) ?? { loading: false };
+		if (!link) return { isLoading: false, error: globalError.val };
+		return fetchStates.val.get(link.url) ?? { isLoading: false };
 	});
 	const chapterEntries = van.derive(() => {
 		fetchStates.val;
@@ -376,7 +381,7 @@ export function createReaderData() {
 		if (!links.val.length) return;
 		const nextIndex = Math.max(nav.min.val, Math.min(nav.max.val, index));
 		if (nextIndex === nav.index.val) return;
-		navigationMode.val = mode;
+		navMode.val = mode;
 		nav.index.val = nextIndex;
 	};
 
@@ -385,7 +390,7 @@ export function createReaderData() {
 
 	return {
 		links,
-		navigationMode,
+		navMode,
 		chapterEntries,
 		currentLink,
 		currentChapterStartUrl,

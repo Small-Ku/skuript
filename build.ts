@@ -1,10 +1,17 @@
 import { watch as fswatch } from "node:fs";
 import path from "node:path";
+import browserslist from "browserslist";
+import { browserslistToESVersion } from "browserslist-to-es-version";
+import { browserslistToTargets } from "lightningcss-wasm";
 import type { PackageJson } from "type-fest";
 import winston from "winston";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import cssModuleNamedImports from "./bun_plugins/css-module-named-imports";
+import denseEnumValues from "./bun_plugins/dense-enum-values";
 import styleLoader from "./bun_plugins/style-loader";
+import typeScriptSourceTransform from "./bun_plugins/typescript-source-transform";
+import userscriptOptimizer from "./bun_plugins/userscript-optimizer";
 
 const consoleTransport = new winston.transports.Console();
 const logger = winston.createLogger({
@@ -62,6 +69,10 @@ const VALID_RELEASE_CHANNELS = [
 type ReleaseChannel = (typeof VALID_RELEASE_CHANNELS)[number];
 
 const PACKAGE_JSON: PackageJson = require("./package.json");
+const BROWSERSLIST_QUERY = "> 1%, Firefox ESR, not dead";
+const TARGET_BROWSERS = browserslist(BROWSERSLIST_QUERY);
+const STYLE_TARGETS = browserslistToTargets(TARGET_BROWSERS);
+const SCRIPT_ECMA_VERSION = browserslistToESVersion(TARGET_BROWSERS);
 
 function generateReleaseURL(
 	releaseChannel: ReleaseChannel,
@@ -185,6 +196,10 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 	const { dev = false, releaseChannel = "OutOfBand", entrypoint } = option;
 
 	const scriptName = path.dirname(path.relative("./src", entrypoint));
+	const headerText = generateHeaderText(
+		generateHeader(releaseChannel, scriptName),
+		dev ? Date.now().toString() : undefined,
+	);
 
 	logger.info(`Building ${entrypoint}`);
 	const build = await Bun.build({
@@ -200,16 +215,25 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 				},
 		sourcemap: dev ? "inline" : undefined,
 		plugins: [
-			styleLoader({
-				cssModules: {
-					pattern: "[local]", // short random scooped class name is not supported for now
-				},
+			typeScriptSourceTransform({
+				transforms: [
+					...(dev ? [] : [denseEnumValues({ logger })]),
+					cssModuleNamedImports(),
+				],
 			}),
+			styleLoader({ cssModules: true, targets: STYLE_TARGETS }),
+			...(dev
+				? []
+				: [
+						userscriptOptimizer({
+							ecma: SCRIPT_ECMA_VERSION,
+							headerText,
+							logger,
+							scriptName,
+						}),
+					]),
 		],
-		banner: generateHeaderText(
-			generateHeader(releaseChannel, scriptName),
-			dev ? Date.now().toString() : undefined,
-		),
+		banner: dev ? headerText : undefined,
 	});
 
 	logger.info(Bun.inspect(build, { colors: true }));
@@ -224,6 +248,7 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 	if (!outputPath) {
 		throw new Error("Cannot find entrypoint in built artifacts.");
 	}
+
 	return {
 		userscriptPath: outputPath,
 	};

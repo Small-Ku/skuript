@@ -3,9 +3,9 @@ export type ChapterCandidate = {
 	series: "main" | "extra";
 	line: number;
 	title?: string;
-	standalone: boolean;
-	source: "content" | "title";
-	pattern?: "chapter" | "numbered" | "ending" | "extra" | "book-title";
+	isStandalone: boolean;
+	chapterSource: "content" | "title";
+	matchPattern?: "chapter" | "numbered" | "ending" | "extra" | "book-title";
 };
 
 export type CommentScope = "catalog" | "chapter" | "page";
@@ -32,7 +32,7 @@ export type PageSlice = {
 	parentUrl: string;
 	subPageIndex: number;
 	title: string[];
-	content: string[];
+	textLines: string[];
 	chapterCandidates?: ChapterCandidate[];
 	commentPages?: CommentPageRef[];
 };
@@ -41,12 +41,12 @@ export type ChapterBoundaryMode = "marker-bounded" | "link-bounded";
 
 export type ResolvedChapter = {
 	title?: string;
-	content: string[];
+	textLines: string[];
 	chapterIndex?: number;
 	startUrl?: string;
 	startLinkIndex?: number;
 	boundaryMode: ChapterBoundaryMode;
-	complete: boolean;
+	isComplete: boolean;
 	commentPages: CommentPageRef[];
 	resolvedPageKey?: string;
 	resolvedThroughLinkIndex?: number;
@@ -63,6 +63,7 @@ export type StoredPage = {
 	dom?: Document;
 };
 
+/** @mangle-preserve Persisted as JSON in sessionStorage. */
 type SessionPage = {
 	version: number;
 	lastModified: string;

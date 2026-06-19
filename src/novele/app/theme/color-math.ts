@@ -38,7 +38,7 @@ export function oklchToRgb(oklch: Oklch): RGB {
 }
 
 function getMatchingHueFilter(hue: number, filters: HueFilter[]) {
-	const activeFilters = filters.filter((filter) => filter.enabled);
+	const activeFilters = filters.filter((filter) => filter.filterEnabled);
 	const normalizedHue = ((hue % 360) + 360) % 360;
 	for (const filter of activeFilters) {
 		const start = ((filter.start % 360) + 360) % 360;

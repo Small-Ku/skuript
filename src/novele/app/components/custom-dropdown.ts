@@ -7,7 +7,7 @@ const { button, div, span } = van.tags;
 type DropdownOption<T extends string> = {
 	label: string;
 	value: T;
-	className?: string;
+	optionClass?: string;
 };
 
 export function CustomDropdown<T extends string>(
@@ -91,7 +91,7 @@ export function CustomDropdown<T extends string>(
 								class: () =>
 									[
 										nameMap.dropdownItem,
-										option.className ?? "",
+										option.optionClass ?? "",
 										option.value === currentValue.val ? nameMap.active : "",
 									]
 										.filter(Boolean)

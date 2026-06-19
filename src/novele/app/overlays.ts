@@ -58,17 +58,17 @@ const typefaceOptions = [
 	{
 		label: "Newsreader",
 		value: typefaceReader as Typeface,
-		className: nameMap.fontReader,
+		optionClass: nameMap.fontReader,
 	},
 	{
 		label: "Satoshi",
 		value: typefaceUi as Typeface,
-		className: nameMap.fontUi,
+		optionClass: nameMap.fontUi,
 	},
 	{
 		label: "Literata",
 		value: typefaceLiterata as Typeface,
-		className: nameMap.fontLiterata,
+		optionClass: nameMap.fontLiterata,
 	},
 	{ label: "Custom...", value: typefaceCustom as Typeface },
 ];
@@ -108,17 +108,12 @@ const themeModeOptions = [
 	{ label: "Dark", value: darkMode as ThemeMode },
 ];
 
-function drawerClass(
-	ui: UiState,
-	name: "chapters" | "comments" | "settings",
-	extraClass: string,
-) {
+function drawerClass(ui: UiState, name: "chapters" | "comments" | "settings") {
 	return () =>
 		[
 			nameMap.bottomSheetPanel,
 			ui.panelPosition.val === "left" ? nameMap.panelLeft : nameMap.panelRight,
 			ui.activeOverlay.val === name ? nameMap.visible : "",
-			extraClass,
 		]
 			.filter(Boolean)
 			.join(" ");
@@ -142,7 +137,7 @@ function drawerHeader(title: string, close: () => void, ...tail: ChildDom[]) {
 
 function segmentedButtonGroup<T extends string>(
 	currentValue: State<T>,
-	options: { label: string; value: T; className?: string }[],
+	options: { label: string; value: T; optionClass?: string }[],
 ) {
 	return div(
 		{ class: nameMap.buttonRow },
@@ -154,7 +149,7 @@ function segmentedButtonGroup<T extends string>(
 							currentValue.val === entry.value
 								? nameMap.active
 								: nameMap.inactive,
-							entry.className ?? "",
+							entry.optionClass ?? "",
 						]
 							.filter(Boolean)
 							.join(" "),
@@ -459,9 +454,9 @@ function settingsPanel(ui: UiState) {
 
 function commentStatusText(data: ReaderData) {
 	const state = data.currentComments.val;
-	if (state.loading && !state.items.length)
+	if (state.isLoading && !state.items.length)
 		return `Loading ${state.refs.length} comment page(s)...`;
-	if (!state.supported)
+	if (!state.commentingAvailable)
 		return "No site comment section was found for this page.";
 	if (!state.items.length) return "No comments yet.";
 	return "";
@@ -520,7 +515,7 @@ export function OverlayPanels(
 			ui.commentAuthor.val = (event.target as HTMLInputElement).value;
 		},
 		disabled: () =>
-			data.currentComments.val.loading ||
+			data.currentComments.val.isLoading ||
 			data.currentComments.val.posting ||
 			!data.currentComments.val.postId,
 	}) as HTMLInputElement;
@@ -533,7 +528,7 @@ export function OverlayPanels(
 			ui.commentDraft.val = (event.target as HTMLTextAreaElement).value;
 		},
 		disabled: () =>
-			data.currentComments.val.loading ||
+			data.currentComments.val.isLoading ||
 			data.currentComments.val.posting ||
 			!data.currentComments.val.postId,
 	}) as HTMLTextAreaElement;
@@ -681,7 +676,7 @@ export function OverlayPanels(
 					div(
 						{ class: nameMap.commentMeta },
 						span({ class: nameMap.user }, "Site comments"),
-						span({ class: nameMap.time }, state.loading ? "Loading" : "Idle"),
+						span({ class: nameMap.time }, state.isLoading ? "Loading" : "Idle"),
 					),
 					p({ class: nameMap.commentText }, status),
 				),
@@ -690,7 +685,7 @@ export function OverlayPanels(
 		}
 
 		commentsRoot.replaceChildren(
-			...(state.loading
+			...(state.isLoading
 				? [
 						div(
 							{ class: nameMap.commentItem },
@@ -743,7 +738,7 @@ export function OverlayPanels(
 	return [
 		aside(
 			{
-				class: drawerClass(ui, "chapters", nameMap.chaptersSheet),
+				class: drawerClass(ui, "chapters"),
 				onclick: (event) => event.stopPropagation(),
 			},
 			drawerHeader("Chapters", close),
@@ -751,7 +746,7 @@ export function OverlayPanels(
 		),
 		aside(
 			{
-				class: drawerClass(ui, "comments", nameMap.commentsSheet),
+				class: drawerClass(ui, "comments"),
 				onclick: (event) => event.stopPropagation(),
 			},
 			drawerHeader("Comments", close),
@@ -796,7 +791,7 @@ export function OverlayPanels(
 							disabled: () => {
 								const comments = data.currentComments.val;
 								return (
-									comments.loading ||
+									comments.isLoading ||
 									comments.posting ||
 									!comments.postId ||
 									!ui.commentDraft.val.trim()
@@ -816,7 +811,7 @@ export function OverlayPanels(
 		),
 		aside(
 			{
-				class: drawerClass(ui, "settings", nameMap.settingsSheet),
+				class: drawerClass(ui, "settings"),
 				onclick: (event) => event.stopPropagation(),
 			},
 			drawerHeader("Preferences", close),

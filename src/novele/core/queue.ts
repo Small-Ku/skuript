@@ -213,13 +213,13 @@ export async function queueChapterFetch(
 	let chapter = resolvePageChapter(link.url, orderedUrls);
 	for (
 		let nextIndex = index + CHAPTER_LOOKAHEAD;
-		!chapter.complete && nextIndex < orderedLinks.length;
+		!chapter.isComplete && nextIndex < orderedLinks.length;
 		nextIndex += 1
 	) {
 		await ensureLinkParsed(orderedLinks[nextIndex], nextIndex);
 		chapter = resolvePageChapter(link.url, orderedUrls);
 	}
-	return chapter.content;
+	return chapter.textLines;
 }
 
 export async function queueCatalogFetch(

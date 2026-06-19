@@ -11,7 +11,7 @@ export type CommentBundle = {
 	refs: CommentPageRef[];
 	items: CommentItem[];
 	postId?: string;
-	supported: boolean;
+	commentingAvailable: boolean;
 };
 
 export type CommentPostResult = CommentBundle & {
@@ -199,7 +199,7 @@ export function getCachedCommentBundle(refs: CommentPageRef[]): CommentBundle {
 		refs,
 		items: pages.flatMap((page) => page.items),
 		postId: pages.find((page) => page.postId)?.postId,
-		supported: refs.length > 0,
+		commentingAvailable: refs.length > 0,
 	};
 }
 

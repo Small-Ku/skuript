@@ -2,6 +2,7 @@ import { normalizeChapterUrl } from "./scroll";
 
 const CHAPTER_PROGRESS_STORAGE_PREFIX = "novele:chapter-progress:";
 
+/** @mangle-preserve Persisted as JSON in sessionStorage. */
 export type ChapterProgressRecord = {
 	chapterUrl: string;
 	linkIndex: number;

@@ -3,9 +3,9 @@
 import fs from "node:fs";
 import type { BunPlugin, OnLoadResult } from "bun";
 import {
-	browserslistToTargets,
 	type CSSModulesConfig,
 	Features,
+	type Targets,
 	transform,
 } from "lightningcss-wasm";
 import * as sass from "sass";
@@ -14,16 +14,11 @@ import * as sass from "sass";
  * No options for now
  */
 export type StyleLoaderOptions = {
-	/**
-	 * List of target browsers to support
-	 * @example ['chrome 80', 'ie 11']
-	 */
-	targets?: string[];
+	targets?: Targets;
 	cssModules?: boolean | CSSModulesConfig;
 };
 
 const defaultOptions: StyleLoaderOptions = {
-	targets: [],
 	cssModules: false,
 };
 
@@ -53,11 +48,17 @@ const CSS_IDENT_START_CHARS =
 	"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const CSS_IDENT_CHARS = `${CSS_IDENT_START_CHARS}0123456789`;
 const shortCssModuleNames = new Map<string, string>();
+const shortCssCustomPropertyNames = new Map<string, string>();
 const cssModuleCache = new Map<
 	string,
-	{ cssText: string; nameMap: Record<string, string> }
+	{
+		cssText: string;
+		nameMap: Record<string, string>;
+		cssCustomPropertyMap: Record<string, string>;
+	}
 >();
 let nextShortCssModuleNameId = 0;
+let nextShortCssCustomPropertyNameId = 0;
 
 export default function styleLoader(
 	options: StyleLoaderOptions = {},
@@ -81,7 +82,7 @@ export default function styleLoader(
 
 type CompileOptions = {
 	cssModules?: boolean | CSSModulesConfig;
-	targets?: string[];
+	targets?: Targets;
 };
 
 function encodeCssIdent(value: number): string {
@@ -97,6 +98,10 @@ function encodeCssIdent(value: number): string {
 	return ident;
 }
 
+function escapeRegex(value: string): string {
+	return value.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+}
+
 function getShortCssModuleName(path: string, compiledName: string): string {
 	const key = `${path}:${compiledName}`;
 	let name = shortCssModuleNames.get(key);
@@ -105,6 +110,26 @@ function getShortCssModuleName(path: string, compiledName: string): string {
 	nextShortCssModuleNameId += 1;
 	shortCssModuleNames.set(key, name);
 	return name;
+}
+
+function normalizeCssCustomPropertyName(name: string): string {
+	return name.startsWith("--") ? name : `--${name}`;
+}
+
+function getShortCssCustomPropertyName(name: string): string {
+	const normalizedName = normalizeCssCustomPropertyName(name);
+	let renamed = shortCssCustomPropertyNames.get(normalizedName);
+	if (renamed) return renamed;
+	renamed = `--${encodeCssIdent(nextShortCssCustomPropertyNameId)}`;
+	nextShortCssCustomPropertyNameId += 1;
+	shortCssCustomPropertyNames.set(normalizedName, renamed);
+	return renamed;
+}
+
+export function getCssCustomPropertyRenameEntries(): [string, string][] {
+	return Array.from(shortCssCustomPropertyNames.entries()).sort(
+		(a, b) => b[0].length - a[0].length || a[0].localeCompare(b[0]),
+	);
 }
 
 function shortenCssModuleNames(
@@ -123,7 +148,13 @@ function shortenCssModuleNames(
 	for (const [, sourceName, shortName] of renameEntries.sort(
 		(a, b) => b[1].length - a[1].length,
 	)) {
-		shortenedCssText = shortenedCssText.split(sourceName).join(shortName);
+		shortenedCssText = shortenedCssText.replace(
+			new RegExp(
+				`(?<![-_a-zA-Z0-9])${escapeRegex(sourceName)}(?![-_a-zA-Z0-9])`,
+				"g",
+			),
+			shortName,
+		);
 	}
 
 	const nameMap = Object.fromEntries(
@@ -133,6 +164,31 @@ function shortenCssModuleNames(
 	return {
 		cssText: shortenedCssText,
 		nameMap,
+	};
+}
+
+function createCssCustomPropertyVisitor(
+	cssCustomPropertyNames: Set<string>,
+): NonNullable<Parameters<typeof transform>[0]["visitor"]> {
+	return {
+		Declaration: {
+			custom(property) {
+				if (!property.name.startsWith("--")) {
+					return;
+				}
+				const renamed = getShortCssCustomPropertyName(property.name);
+				cssCustomPropertyNames.add(
+					normalizeCssCustomPropertyName(property.name),
+				);
+				return {
+					property: "custom",
+					value: {
+						...property,
+						name: renamed,
+					},
+				};
+			},
+		},
 	};
 }
 
@@ -159,17 +215,15 @@ async function getCssModuleResult(
 	if (cached) return cached;
 
 	const imports: string[] = [];
-	const targets = options.targets?.length
-		? browserslistToTargets(options.targets)
-		: undefined;
+	const cssCustomPropertyNames = new Set<string>();
 	const { code, exports } = transform({
 		filename: filePath,
 		code: new Uint8Array(Buffer.from(content)),
 		cssModules: options.cssModules,
 		minify: true,
-		include: Features.VendorPrefixes,
-		targets,
+		targets: options.targets,
 		visitor: {
+			...createCssCustomPropertyVisitor(cssCustomPropertyNames),
 			Rule: {
 				import(rule) {
 					imports.push(rule.value.url);
@@ -181,8 +235,18 @@ async function getCssModuleResult(
 
 	const cssText = restoreBackdropFilterFallback(code.toString());
 	const result = shortenCssModuleNames(filePath, cssText, exports);
-	cssModuleCache.set(filePath, result);
-	return result;
+	const cssCustomPropertyMap = Object.fromEntries(
+		Array.from(cssCustomPropertyNames, (name) => [
+			name,
+			getShortCssCustomPropertyName(name),
+		]),
+	);
+	const cachedResult = {
+		...result,
+		cssCustomPropertyMap,
+	};
+	cssModuleCache.set(filePath, cachedResult);
+	return cachedResult;
 }
 
 async function compileCSS(
@@ -191,17 +255,16 @@ async function compileCSS(
 	options: CompileOptions = {},
 ): Promise<OnLoadResult> {
 	const imports: string[] = [];
-	const targets = options.targets?.length
-		? browserslistToTargets(options.targets)
-		: undefined;
+	const cssCustomPropertyNames = new Set<string>();
 	const { code } = transform({
 		filename: filePath,
 		code: new Uint8Array(Buffer.from(content)),
 		cssModules: options.cssModules,
 		minify: true,
 		include: Features.VendorPrefixes,
-		targets,
+		targets: options.targets,
 		visitor: {
+			...createCssCustomPropertyVisitor(cssCustomPropertyNames),
 			Rule: {
 				import(rule) {
 					imports.push(rule.value.url);
@@ -214,13 +277,16 @@ async function compileCSS(
 	const cssText = restoreBackdropFilterFallback(code.toString());
 
 	if (options.cssModules) {
-		const { cssText: shortenedCssText, nameMap } = await getCssModuleResult(
-			content,
-			filePath,
-			options,
-		);
+		const {
+			cssText: shortenedCssText,
+			nameMap,
+			cssCustomPropertyMap,
+		} = await getCssModuleResult(content, filePath, options);
+		const namedExports = Object.entries(nameMap)
+			.map(([key, value]) => `export const ${key} = ${JSON.stringify(value)};`)
+			.join("\n");
 		return {
-			contents: `export const code = ${JSON.stringify(shortenedCssText)};\nexport default ${JSON.stringify(nameMap)};`,
+			contents: `${namedExports}\nexport const code = ${JSON.stringify(shortenedCssText)};\nexport const cssCustomPropertyMap = ${JSON.stringify(cssCustomPropertyMap)};\nexport default ${JSON.stringify(nameMap)};`,
 			loader: "js",
 		};
 	}

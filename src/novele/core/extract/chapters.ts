@@ -10,7 +10,7 @@ import {
 
 export type ChapterResolution = ResolvedChapter & {
 	nextBoundaryFound: boolean;
-	candidates: Map<number, ChapterCandidate[]>;
+	candidateMap: Map<number, ChapterCandidate[]>;
 };
 
 type ParsedLinkPage = {
@@ -41,7 +41,7 @@ type ChapterMarker = {
 };
 
 type CandidateScoreBin = {
-	candidate: CandidateWithRef;
+	candidateRef: CandidateWithRef;
 	score: number;
 };
 
@@ -80,32 +80,32 @@ function getChapterTitleMatches(lineText: string) {
 	const checks = [
 		{
 			regex: numberedTitleRegex,
-			pattern: "numbered" as const,
+			titlePattern: "numbered" as const,
 			series: "main" as const,
 		},
 		{
 			regex: chapterTitleRegex,
-			pattern: "chapter" as const,
+			titlePattern: "chapter" as const,
 			series: "main" as const,
 		},
 		{
 			regex: endingTitleRegex,
-			pattern: "ending" as const,
+			titlePattern: "ending" as const,
 			series: "main" as const,
 		},
 		{
 			regex: extraTitleRegex,
-			pattern: "extra" as const,
+			titlePattern: "extra" as const,
 			series: "extra" as const,
 		},
 		{
 			regex: bookTitleRegex,
-			pattern: "book-title" as const,
+			titlePattern: "book-title" as const,
 			series: "main" as const,
 		},
 	];
 
-	for (const { regex, pattern, series } of checks) {
+	for (const { regex, titlePattern, series } of checks) {
 		const match = text.match(regex);
 		const chapterText = match?.[1];
 		if (!chapterText) continue;
@@ -116,7 +116,7 @@ function getChapterTitleMatches(lineText: string) {
 				chapterIndex,
 				series,
 				title: match[0].trim(),
-				pattern,
+				titlePattern,
 			},
 		];
 	}
@@ -162,43 +162,43 @@ function stripDuplicatedHeading(content: string[], title?: string) {
 
 function matchChapterTitle(
 	text: string[],
-	standalone: boolean,
-	source: "content" | "title",
+	isStandalone: boolean,
+	origin: "content" | "title",
 ) {
-	const candidates = new Map<number, ChapterCandidate[]>();
+	const candidateMap = new Map<number, ChapterCandidate[]>();
 
 	text.forEach((lineText, lineIndex) => {
 		for (const match of getChapterTitleMatches(lineText)) {
 			const chapterFullText = match.title;
 			const chapterIndex = match.chapterIndex;
-			const current = candidates.get(chapterIndex) ?? [];
+			const current = candidateMap.get(chapterIndex) ?? [];
 			current.push({
 				index: chapterIndex,
 				series: match.series,
 				title: chapterFullText,
-				standalone,
-				source,
+				isStandalone,
+				chapterSource: origin,
 				line: lineIndex,
-				pattern: match.pattern,
+				matchPattern: match.titlePattern,
 			});
-			candidates.set(chapterIndex, current);
+			candidateMap.set(chapterIndex, current);
 
-			if (standalone || lineIndex === 0) continue;
+			if (isStandalone || lineIndex === 0) continue;
 			const previousIndex = chapterIndex - 1;
-			const previous = candidates.get(previousIndex) ?? [];
+			const previous = candidateMap.get(previousIndex) ?? [];
 			previous.push({
 				index: previousIndex,
 				series: match.series,
-				standalone,
-				source,
+				isStandalone,
+				chapterSource: origin,
 				line: lineIndex,
-				pattern: match.pattern,
+				matchPattern: match.titlePattern,
 			});
-			candidates.set(previousIndex, previous);
+			candidateMap.set(previousIndex, previous);
 		}
 	});
 
-	return candidates;
+	return candidateMap;
 }
 
 function mergeCandidateMaps(...maps: Map<number, ChapterCandidate[]>[]) {
@@ -214,15 +214,15 @@ function mergeCandidateMaps(...maps: Map<number, ChapterCandidate[]>[]) {
 }
 
 function collectSliceCandidates(slice: PageSlice, sliceIndex: number) {
-	const matches = mergeCandidateMaps(
-		matchChapterTitle(slice.content, false, "content"),
+	const candidateGroups = mergeCandidateMaps(
+		matchChapterTitle(slice.textLines, false, "content"),
 		matchChapterTitle(slice.title, true, "title"),
 	);
-	const candidates = Array.from(matches.values()).flat();
-	slice.chapterCandidates = candidates;
+	const candidateList = Array.from(candidateGroups.values()).flat();
+	slice.chapterCandidates = candidateList;
 
 	const refs: CandidateWithRef[] = [];
-	for (const candidatesForIndex of matches.values()) {
+	for (const candidatesForIndex of candidateGroups.values()) {
 		for (const candidate of candidatesForIndex) {
 			refs.push({
 				...candidate,
@@ -231,7 +231,7 @@ function collectSliceCandidates(slice: PageSlice, sliceIndex: number) {
 			});
 		}
 	}
-	return { matches, refs };
+	return { candidateGroups, refs };
 }
 
 function getParsedLinkPages(orderedUrls: string[]): ParsedLinkPage[] {
@@ -249,8 +249,11 @@ function buildChapterIndex(parsedPages: ParsedLinkPage[]) {
 	for (const parsedPage of parsedPages) {
 		const pageCandidates = new Map<number, ChapterCandidate[]>();
 		parsedPage.page.slices?.forEach((slice, sliceIndex) => {
-			const { matches, refs } = collectSliceCandidates(slice, sliceIndex);
-			for (const [chapterIndex, candidates] of matches) {
+			const { candidateGroups, refs } = collectSliceCandidates(
+				slice,
+				sliceIndex,
+			);
+			for (const [chapterIndex, candidates] of candidateGroups) {
 				const current = pageCandidates.get(chapterIndex) ?? [];
 				current.push(...candidates);
 				pageCandidates.set(chapterIndex, current);
@@ -303,9 +306,9 @@ function updateScoreForNeighbor(
 	direction: "previous" | "next",
 ) {
 	if (!neighbor) return;
-	if (bin.candidate.series !== neighbor.series) return;
+	if (bin.candidateRef.series !== neighbor.series) return;
 
-	const delta = bin.candidate.index - neighbor.index;
+	const delta = bin.candidateRef.index - neighbor.index;
 	if (
 		(direction === "previous" && delta <= 0) ||
 		(direction === "next" && delta >= 0)
@@ -314,7 +317,7 @@ function updateScoreForNeighbor(
 		return;
 	}
 	if (Math.abs(delta) === 1) {
-		if (isCloseSequentialCandidate(bin.candidate, neighbor)) {
+		if (isCloseSequentialCandidate(bin.candidateRef, neighbor)) {
 			bin.score -= 70;
 			return;
 		}
@@ -324,7 +327,10 @@ function updateScoreForNeighbor(
 
 function createPatternScoreBins(candidates: CandidateWithRef[]) {
 	const sorted = [...candidates].sort(compareCandidateCursor);
-	const patternCounts = countBy(sorted, (candidate) => candidate.pattern ?? "");
+	const patternCounts = countBy(
+		sorted,
+		(candidate) => candidate.matchPattern ?? "",
+	);
 	const patternScores = new Map<string, number>();
 
 	for (const [pattern, count] of patternCounts) {
@@ -332,14 +338,14 @@ function createPatternScoreBins(candidates: CandidateWithRef[]) {
 	}
 
 	for (const candidate of sorted) {
-		const pattern = candidate.pattern ?? "";
+		const pattern = candidate.matchPattern ?? "";
 		const currentScore = patternScores.get(pattern) ?? 50;
 		const previous = findPreviousCandidate(
-			sorted.filter((item) => item.pattern === candidate.pattern),
+			sorted.filter((item) => item.matchPattern === candidate.matchPattern),
 			candidate,
 		);
 		const next = findNextCandidate(
-			sorted.filter((item) => item.pattern === candidate.pattern),
+			sorted.filter((item) => item.matchPattern === candidate.matchPattern),
 			candidate,
 		);
 		const penalty =
@@ -358,10 +364,11 @@ function createCandidateScoreBins(candidates: CandidateWithRef[]) {
 		([, a], [, b]) => b - a,
 	)[0]?.[0];
 	const titleAnchors = sorted.filter(
-		(candidate) => candidate.source === "title" && candidate.standalone,
+		(candidate) =>
+			candidate.chapterSource === "title" && candidate.isStandalone,
 	);
 	const patternAnchors = strongestPattern
-		? sorted.filter((candidate) => candidate.pattern === strongestPattern)
+		? sorted.filter((candidate) => candidate.matchPattern === strongestPattern)
 		: [];
 	const anchors =
 		patternAnchors.length > 0
@@ -372,8 +379,8 @@ function createCandidateScoreBins(candidates: CandidateWithRef[]) {
 
 	return sorted.map((candidate) => {
 		const bin: CandidateScoreBin = {
-			candidate,
-			score: patternScores.get(candidate.pattern ?? "") ?? 50,
+			candidateRef: candidate,
+			score: patternScores.get(candidate.matchPattern ?? "") ?? 50,
 		};
 		const previousAnchor = findPreviousCandidate(anchors, candidate);
 		const nextAnchor = findNextCandidate(anchors, candidate);
@@ -398,10 +405,10 @@ function createCandidateScoreBins(candidates: CandidateWithRef[]) {
 function compareCandidateScoreBins(a: CandidateScoreBin, b: CandidateScoreBin) {
 	return (
 		b.score - a.score ||
-		compareCandidateCursor(a.candidate, b.candidate) ||
-		(a.candidate.source === b.candidate.source
+		compareCandidateCursor(a.candidateRef, b.candidateRef) ||
+		(a.candidateRef.chapterSource === b.candidateRef.chapterSource
 			? 0
-			: a.candidate.source === "title"
+			: a.candidateRef.chapterSource === "title"
 				? -1
 				: 1)
 	);
@@ -416,7 +423,7 @@ function lineDistance(a: CandidateWithRef, b: CandidateWithRef) {
 function isCloseSequentialCandidate(a: CandidateWithRef, b: CandidateWithRef) {
 	return (
 		a.series === b.series &&
-		a.pattern === b.pattern &&
+		a.matchPattern === b.matchPattern &&
 		Math.abs(a.index - b.index) === 1 &&
 		lineDistance(a, b) <= CLOSE_SEQUENCE_LINE_DISTANCE
 	);
@@ -425,7 +432,7 @@ function isCloseSequentialCandidate(a: CandidateWithRef, b: CandidateWithRef) {
 function selectChapterMarkers(candidates: CandidateWithRef[]) {
 	const binsByIndex = new Map<string, CandidateScoreBin[]>();
 	for (const bin of createCandidateScoreBins(candidates)) {
-		const key = getCandidateIdentity(bin.candidate);
+		const key = getCandidateIdentity(bin.candidateRef);
 		const bins = binsByIndex.get(key) ?? [];
 		bins.push(bin);
 		binsByIndex.set(key, bins);
@@ -434,15 +441,15 @@ function selectChapterMarkers(candidates: CandidateWithRef[]) {
 	return Array.from(binsByIndex.values()).flatMap((bins) => {
 		const bin = bins.sort(compareCandidateScoreBins)[0];
 		if (!bin || bin.score < 50) return [];
-		const { candidate } = bin;
+		const { candidateRef } = bin;
 		return [
 			{
-				chapterIndex: candidate.index,
-				series: candidate.series,
-				title: candidate.title ?? "",
-				linkIndex: candidate.linkIndex,
-				sliceIndex: candidate.sliceIndex,
-				lineIndex: candidate.line,
+				chapterIndex: candidateRef.index,
+				series: candidateRef.series,
+				title: candidateRef.title ?? "",
+				linkIndex: candidateRef.linkIndex,
+				sliceIndex: candidateRef.sliceIndex,
+				lineIndex: candidateRef.line,
 			},
 		];
 	});
@@ -459,7 +466,7 @@ function getOwningMarker(markers: ChapterMarker[], linkIndex: number) {
 function flattenLines(parsedPages: ParsedLinkPage[]) {
 	return parsedPages.flatMap(({ linkIndex, page }) =>
 		(page.slices ?? []).flatMap((slice, sliceIndex) =>
-			slice.content.map((text, lineIndex) => ({
+			slice.textLines.map((text, lineIndex) => ({
 				linkIndex,
 				sliceIndex,
 				lineIndex,
@@ -495,7 +502,7 @@ function getRangeCommentPages(
 }
 
 function getLinkBoundedChapter(page: StoredPage): ResolvedChapter {
-	const content = page.slices?.flatMap((slice) => slice.content) ?? [];
+	const textLines = page.slices?.flatMap((slice) => slice.textLines) ?? [];
 	const title =
 		Array.from(page.title).find((item) => item.trim()) ??
 		page.slices?.flatMap((slice) => slice.title).find((item) => item.trim());
@@ -504,10 +511,10 @@ function getLinkBoundedChapter(page: StoredPage): ResolvedChapter {
 	);
 	return {
 		title,
-		content,
+		textLines,
 		startUrl: page.url,
 		boundaryMode: "link-bounded",
-		complete: true,
+		isComplete: true,
 		commentPages,
 	};
 }
@@ -527,7 +534,7 @@ function getMarkerBoundedChapter(
 	);
 	return {
 		title: start.title,
-		content: stripDuplicatedHeading(
+		textLines: stripDuplicatedHeading(
 			lines.map((line) => line.text),
 			start.title,
 		),
@@ -536,7 +543,7 @@ function getMarkerBoundedChapter(
 			?.url,
 		startLinkIndex: start.linkIndex,
 		boundaryMode: "marker-bounded",
-		complete: Boolean(end) || allLinksLoaded,
+		isComplete: Boolean(end) || allLinksLoaded,
 		commentPages,
 	};
 }
@@ -567,12 +574,12 @@ function getPrefaceChapter(
 	);
 	return {
 		title: "前置內容",
-		content: lines.map((line) => line.text),
+		textLines: lines.map((line) => line.text),
 		chapterIndex: 0,
 		startUrl: parsedPages[0]?.url,
 		startLinkIndex: 0,
 		boundaryMode: "marker-bounded",
-		complete: Boolean(end) || allLinksLoaded,
+		isComplete: Boolean(end) || allLinksLoaded,
 		commentPages,
 	};
 }
@@ -584,12 +591,12 @@ export function resolvePageChapter(
 	const page = peekPage(url);
 	if (!page?.slices?.length) {
 		return {
-			content: [],
+			textLines: [],
 			boundaryMode: "link-bounded",
-			complete: false,
+			isComplete: false,
 			nextBoundaryFound: false,
 			commentPages: [],
-			candidates: new Map(),
+			candidateMap: new Map(),
 		};
 	}
 
@@ -608,7 +615,7 @@ export function resolvePageChapter(
 	const allLinksLoaded = loadedLastLinkIndex >= orderedUrls.length - 1;
 	const cached = page.resolvedChapter;
 	if (
-		cached?.complete &&
+		cached?.isComplete &&
 		cached.resolvedPageKey === parsedPageKey &&
 		cached.resolvedThroughLinkIndex === loadedLastLinkIndex &&
 		(cached.boundaryMode === "marker-bounded" || orderedUrls.length <= 1)
@@ -616,12 +623,12 @@ export function resolvePageChapter(
 		return {
 			...cached,
 			nextBoundaryFound: cached.boundaryMode === "marker-bounded",
-			candidates: new Map(),
+			candidateMap: new Map(),
 		};
 	}
 
 	const { markers, candidatesByLink } = buildChapterIndex(parsedPages);
-	const candidates = candidatesByLink.get(linkIndex) ?? new Map();
+	const candidateMap = candidatesByLink.get(linkIndex) ?? new Map();
 	const owningMarker = getOwningMarker(markers, linkIndex);
 	const firstMarker = markers[0];
 
@@ -638,7 +645,7 @@ export function resolvePageChapter(
 			nextMarker,
 			allLinksLoaded,
 		);
-		if (!resolvedChapter.content.length) {
+		if (!resolvedChapter.textLines.length) {
 			resolvedChapter = getLinkBoundedChapter(page);
 			nextBoundaryFound = true;
 		}
@@ -665,7 +672,7 @@ export function resolvePageChapter(
 	return {
 		...resolvedChapter,
 		nextBoundaryFound,
-		candidates,
+		candidateMap,
 	};
 }
 

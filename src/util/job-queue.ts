@@ -6,10 +6,10 @@
 interface Job<TJobContext extends object, TResult = unknown> {
 	/** The asynchronous function to be executed for this job. */
 	task: (args: TJobContext) => Promise<TResult>;
-	/** The priority of the job (lower numbers mean higher priority). */
-	priority: number;
+	/** The rank of the job (lower numbers mean higher priority). */
+	rank: number;
 	/** The job-specific context. */
-	context: TJobContext;
+	jobArgs: TJobContext;
 	/** @internal For internal use: resolves the Promise returned by addJob. */
 	_resolve: (value: TResult | PromiseLike<TResult>) => void;
 	/** @internal For internal use: rejects the Promise returned by addJob. */
@@ -34,11 +34,11 @@ export class JobQueue<
 > {
 	// Configuration & Core State
 	private concurrency: number;
-	private readonly priorityFn: (
+	private readonly rankFn: (
 		jobContext: TJobContext,
-		context: TContext,
+		queueState: TContext,
 	) => number;
-	private context: TContext; // Queue-wide mutable context
+	private queueState: TContext; // Queue-wide mutable context
 
 	// Operational State
 	private queue: Job<TJobContext, TResult>[] = [];
@@ -58,12 +58,12 @@ export class JobQueue<
 	 * @param concurrency The maximum number of jobs to run concurrently. Must be a positive integer. Defaults to 3.
 	 */
 	constructor(
-		priorityFn: (jobContext: TJobContext, context: TContext) => number,
+		rankFn: (jobContext: TJobContext, queueState: TContext) => number,
 		initialContext: TContext,
 		concurrency: number = 3,
 	) {
-		if (typeof priorityFn !== "function") {
-			throw new Error("A priority function (priorityFn) must be provided.");
+		if (typeof rankFn !== "function") {
+			throw new Error("A priority function (rankFn) must be provided.");
 		}
 		if (initialContext === undefined || initialContext === null) {
 			throw new Error(
@@ -71,8 +71,8 @@ export class JobQueue<
 			);
 		}
 
-		this.priorityFn = priorityFn;
-		this.context = initialContext;
+		this.rankFn = rankFn;
+		this.queueState = initialContext;
 
 		if (
 			typeof concurrency !== "number" ||
@@ -101,7 +101,7 @@ export class JobQueue<
 		task: () => Promise<TResult>,
 		jobContext: TJobContext,
 	): Promise<TResult> {
-		const priority = this.priorityFn(jobContext, this.context);
+		const rank = this.rankFn(jobContext, this.queueState);
 
 		let taskResolve!: (value: TResult | PromiseLike<TResult>) => void;
 		let taskReject!: (reason?: unknown) => void;
@@ -112,8 +112,8 @@ export class JobQueue<
 
 		const newJob: Job<TJobContext, TResult> = {
 			task,
-			priority,
-			context: jobContext,
+			rank,
+			jobArgs: jobContext,
 			_resolve: taskResolve,
 			_reject: taskReject,
 		};
@@ -137,9 +137,9 @@ export class JobQueue<
 	 * @returns A `Promise<void>` that resolves when the context is set and processing is triggered.
 	 */
 	public async setContext(newContext: Partial<TContext>): Promise<void> {
-		const _newContext = { ...this.context, ...newContext } as TContext; // Merge new context with existing
-		if (this.context !== _newContext) {
-			this.context = _newContext;
+		const _newContext = { ...this.queueState, ...newContext } as TContext; // Merge new context with existing
+		if (this.queueState !== _newContext) {
+			this.queueState = _newContext;
 			this.priorityStale = true;
 		}
 		this._processQueue();
@@ -227,13 +227,13 @@ export class JobQueue<
 			this.runningJobs++;
 
 			job
-				.task(job.context)
+				.task(job.jobArgs)
 				.then((result: TResult) => {
 					job._resolve(result);
 				})
 				.catch((error) => {
 					console.error(
-						`Job (context: ${JSON.stringify(job.context)}) failed:`,
+						`Job (args: ${JSON.stringify(job.jobArgs)}) failed:`,
 						error,
 					);
 					job._reject(error);
@@ -256,17 +256,17 @@ export class JobQueue<
 		if (this.queue.length > 0) {
 			let previousJobNewPriority: number | null = null;
 			for (const job of this.queue) {
-				const newPriority = this.priorityFn(job.context, this.context);
+				const newRank = this.rankFn(job.jobArgs, this.queueState);
 				if (!this.orderStale) {
 					if (
 						previousJobNewPriority !== null &&
-						newPriority < previousJobNewPriority
+						newRank < previousJobNewPriority
 					) {
 						this.orderStale = true;
 					}
-					previousJobNewPriority = newPriority;
+					previousJobNewPriority = newRank;
 				}
-				job.priority = newPriority;
+				job.rank = newRank;
 			}
 		}
 		this.priorityStale = false;
@@ -279,7 +279,7 @@ export class JobQueue<
 	 * @internal
 	 */
 	private _sortQueue(): void {
-		this.queue.sort((a, b) => a.priority - b.priority);
+		this.queue.sort((a, b) => a.rank - b.rank);
 		this.orderStale = false;
 	}
 
@@ -297,9 +297,9 @@ export class JobQueue<
 		while (low < high) {
 			const mid = low + Math.floor((high - low) / 2);
 			const midJob = this.queue[mid];
-			if (jobToInsert.priority < midJob.priority) {
+			if (jobToInsert.rank < midJob.rank) {
 				high = mid;
-			} else if (jobToInsert.priority > midJob.priority) {
+			} else if (jobToInsert.rank > midJob.rank) {
 				low = mid + 1;
 			} else {
 				// Equal priorities

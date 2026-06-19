@@ -44,7 +44,7 @@ export type UiPreferences = {
 
 type PreferenceSpec<K extends keyof UiPreferences> = {
 	storageKey: string;
-	defaultValue: UiPreferences[K];
+	seedValue: UiPreferences[K];
 	parse: (value: unknown) => UiPreferences[K];
 	debounceMs?: number;
 };
@@ -65,6 +65,9 @@ const readingWidthPresetSet = new Set<ReadingWidthPreset>(
 const themeModeSet = new Set<ThemeMode>(THEME_MODE_VALUES);
 const interfaceDensitySet = new Set<InterfaceDensity>(INTERFACE_DENSITY_VALUES);
 const panelPositionSet = new Set<PanelPosition>(PANEL_POSITION_VALUES);
+const regularPreset = COMPACT_REGULAR_RELAXED_VALUES[1];
+const regularWidth = READING_WIDTH_PRESET_VALUES[1];
+const comfortableDensity = INTERFACE_DENSITY_VALUES[1];
 
 function clamp(value: number, min: number, max: number) {
 	return Math.min(max, Math.max(min, value));
@@ -112,125 +115,137 @@ function parseOklch(value: unknown, fallback: Oklch): Oklch {
 const preferenceSchema = {
 	typeface: {
 		storageKey: "novele:pref:typeface",
-		defaultValue: "fontReader" as Typeface,
+		seedValue: "fontReader" as Typeface,
 		parse: (value) => parseEnum(value, typefaceSet, "fontReader" as Typeface),
 	},
 	customTypeface: {
 		storageKey: "novele:pref:customTypeface",
-		defaultValue: "Arial",
+		seedValue: "Arial",
 		parse: (value) => parseString(value, "Arial"),
 		debounceMs: 150,
 	},
 	advancedTextSize: {
 		storageKey: "novele:pref:advancedTextSize",
-		defaultValue: true,
+		seedValue: true,
 		parse: (value) => parseBoolean(value, true),
 	},
 	textSizeValue: {
 		storageKey: "novele:pref:textSizeValue",
-		defaultValue: 19,
+		seedValue: 19,
 		parse: (value) => parseNumber(value, 19, 14, 28),
 		debounceMs: 150,
 	},
 	textSizePreset: {
 		storageKey: "novele:pref:textSizePreset",
-		defaultValue: "regular" as TextSizePreset,
+		seedValue: regularPreset as TextSizePreset,
 		parse: (value) =>
-			parseEnum(value, compactRegularRelaxedSet, "regular" as TextSizePreset),
+			parseEnum(
+				value,
+				compactRegularRelaxedSet,
+				regularPreset as TextSizePreset,
+			),
 	},
 	advancedLineSpacing: {
 		storageKey: "novele:pref:advancedLineSpacing",
-		defaultValue: true,
+		seedValue: true,
 		parse: (value) => parseBoolean(value, true),
 	},
 	lineSpacingValue: {
 		storageKey: "novele:pref:lineSpacingValue",
-		defaultValue: 1.6,
+		seedValue: 1.6,
 		parse: (value) => parseNumber(value, 1.6, 1.1, 2.5),
 		debounceMs: 150,
 	},
 	lineSpacingPreset: {
 		storageKey: "novele:pref:lineSpacingPreset",
-		defaultValue: "regular" as LineSpacingPreset,
+		seedValue: regularPreset as LineSpacingPreset,
 		parse: (value) =>
 			parseEnum(
 				value,
 				compactRegularRelaxedSet,
-				"regular" as LineSpacingPreset,
+				regularPreset as LineSpacingPreset,
 			),
 	},
 	advancedReadingWidth: {
 		storageKey: "novele:pref:advancedReadingWidth",
-		defaultValue: true,
+		seedValue: true,
 		parse: (value) => parseBoolean(value, true),
 	},
 	readingWidthValue: {
 		storageKey: "novele:pref:readingWidthValue",
-		defaultValue: 42,
+		seedValue: 42,
 		parse: (value) => parseNumber(value, 42, 30, 60),
 		debounceMs: 150,
 	},
 	readingWidthPreset: {
 		storageKey: "novele:pref:readingWidthPreset",
-		defaultValue: "regular" as ReadingWidthPreset,
+		seedValue: regularWidth as ReadingWidthPreset,
 		parse: (value) =>
-			parseEnum(value, readingWidthPresetSet, "regular" as ReadingWidthPreset),
+			parseEnum(
+				value,
+				readingWidthPresetSet,
+				regularWidth as ReadingWidthPreset,
+			),
 	},
 	themeMode: {
 		storageKey: "novele:pref:themeMode",
-		defaultValue: "dark" as ThemeMode,
+		seedValue: "dark" as ThemeMode,
 		parse: (value) => parseEnum(value, themeModeSet, "dark" as ThemeMode),
 	},
 	lightPrimarySeed: {
 		storageKey: "novele:pref:lightPrimarySeed",
-		defaultValue: { l: 0.55, c: 0.25, h: 230 },
+		seedValue: { l: 0.55, c: 0.25, h: 230 },
 		parse: (value) => parseOklch(value, { l: 0.55, c: 0.25, h: 230 }),
 		debounceMs: 150,
 	},
 	lightSurfaceSeed: {
 		storageKey: "novele:pref:lightSurfaceSeed",
-		defaultValue: { l: 0.95, c: 0.02, h: 230 },
+		seedValue: { l: 0.95, c: 0.02, h: 230 },
 		parse: (value) => parseOklch(value, { l: 0.95, c: 0.02, h: 230 }),
 		debounceMs: 150,
 	},
 	darkPrimarySeed: {
 		storageKey: "novele:pref:darkPrimarySeed",
-		defaultValue: { l: 0.65, c: 0.286, h: 203 },
+		seedValue: { l: 0.65, c: 0.286, h: 203 },
 		parse: (value) => parseOklch(value, { l: 0.65, c: 0.286, h: 203 }),
 		debounceMs: 150,
 	},
 	darkSurfaceSeed: {
 		storageKey: "novele:pref:darkSurfaceSeed",
-		defaultValue: { l: 0.65, c: 0.337, h: 66 },
+		seedValue: { l: 0.65, c: 0.337, h: 66 },
 		parse: (value) => parseOklch(value, { l: 0.65, c: 0.337, h: 66 }),
 		debounceMs: 150,
 	},
 	advancedInterfaceDensity: {
 		storageKey: "novele:pref:advancedInterfaceDensity",
-		defaultValue: false,
+		seedValue: false,
 		parse: (value) => parseBoolean(value, false),
 	},
 	interfaceDensity: {
 		storageKey: "novele:pref:interfaceDensity",
-		defaultValue: "comfortable" as InterfaceDensity,
+		seedValue: comfortableDensity as InterfaceDensity,
 		parse: (value) =>
-			parseEnum(value, interfaceDensitySet, "comfortable" as InterfaceDensity),
+			parseEnum(
+				value,
+				interfaceDensitySet,
+				comfortableDensity as InterfaceDensity,
+			),
 	},
 	interfaceScale: {
 		storageKey: "novele:pref:interfaceScale",
-		defaultValue: 1,
+		seedValue: 1,
 		parse: (value) => parseNumber(value, 1, 0.75, 1.3),
 		debounceMs: 150,
 	},
 	panelPosition: {
 		storageKey: "novele:pref:panelPosition",
-		defaultValue: "right" as PanelPosition,
+		seedValue: "right" as PanelPosition,
 		parse: (value) =>
 			parseEnum(value, panelPositionSet, "right" as PanelPosition),
 	},
 	commentAuthor: {
 		storageKey: "novele:pref:commentAuthor",
-		defaultValue: "匿名",
+		seedValue: "匿名",
 		parse: (value) => parseString(value, "匿名"),
 		debounceMs: 150,
 	},
@@ -256,7 +271,7 @@ function assignDefaultPreference<K extends keyof UiPreferences>(
 	preferences: UiPreferences,
 	key: K,
 ) {
-	preferences[key] = clonePreferenceValue(getPreferenceSpec(key).defaultValue);
+	preferences[key] = clonePreferenceValue(getPreferenceSpec(key).seedValue);
 }
 
 function getDefaultUiPreferences(): UiPreferences {
@@ -273,7 +288,7 @@ function getStorageDefaults() {
 	const defaults: Record<string, unknown> = {};
 	for (const key of preferenceKeys) {
 		const spec = getPreferenceSpec(key);
-		defaults[spec.storageKey] = spec.defaultValue;
+		defaults[spec.storageKey] = spec.seedValue;
 	}
 	return defaults;
 }

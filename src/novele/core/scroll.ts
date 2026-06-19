@@ -1,5 +1,6 @@
 const SCROLL_STORAGE_PREFIX = "novele:chapter-scroll:";
 
+/** @mangle-preserve Persisted as JSON in sessionStorage. */
 export type ScrollRecord = {
 	ratio: number;
 };

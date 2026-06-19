@@ -226,7 +226,7 @@ function createPageSlice(
 	parentUrl: string,
 	subPageIndex: number,
 	title: Set<string>,
-	content: string[],
+	textLines: string[],
 	commentPages: CommentPageRef[],
 ): PageSlice {
 	return {
@@ -234,7 +234,7 @@ function createPageSlice(
 		parentUrl,
 		subPageIndex,
 		title: [...title],
-		content,
+		textLines,
 		chapterCandidates: page.slices?.find((slice) => slice.url === url)
 			?.chapterCandidates,
 		commentPages,

@@ -12,25 +12,32 @@ import type { NavigationMode } from "./reader-data";
 import { createReaderData } from "./reader-data";
 import type { UiState } from "./state";
 import nameMap from "./styles/style.module.scss";
+import {
+	COMPACT_REGULAR_RELAXED_VALUES,
+	READING_WIDTH_PRESET_VALUES,
+} from "./types";
 
 const { div, h1, main, p } = van.tags;
+const [compactPreset, regularPreset, relaxedPreset] =
+	COMPACT_REGULAR_RELAXED_VALUES;
+const [narrowWidth, regularWidth, wideWidth] = READING_WIDTH_PRESET_VALUES;
 
 const textSizePresetMap = {
-	compact: 15,
-	regular: 19,
-	relaxed: 23,
+	[compactPreset]: 15,
+	[regularPreset]: 19,
+	[relaxedPreset]: 23,
 } as const;
 
 const lineSpacingPresetMap = {
-	compact: 1.375,
-	regular: 1.625,
-	relaxed: 2,
+	[compactPreset]: 1.375,
+	[regularPreset]: 1.625,
+	[relaxedPreset]: 2,
 } as const;
 
 const readingWidthPresetMap = {
-	narrow: 36,
-	regular: 42,
-	wide: 48,
+	[narrowWidth]: 36,
+	[regularWidth]: 42,
+	[wideWidth]: 48,
 } as const;
 
 function readerStyle(ui: UiState) {
@@ -56,9 +63,9 @@ function textContentStyle(ui: UiState) {
 			: readingWidthPresetMap[ui.readingWidthPreset.val];
 		const paddingY = ui.advancedReadingWidth.val
 			? Math.max(1, (60 - ui.readingWidthValue.val) / 3)
-			: ui.readingWidthPreset.val === "narrow"
+			: ui.readingWidthPreset.val === narrowWidth
 				? 8
-				: ui.readingWidthPreset.val === "wide"
+				: ui.readingWidthPreset.val === wideWidth
 					? 4
 					: 6;
 		return [`max-width:${readingWidth}em`, `padding:${paddingY}em 1.5em`].join(
@@ -165,7 +172,7 @@ export function Reader(open: State<boolean>, ui: UiState) {
 			if (pendingRestore.chapterUrl !== currentChapterUrl.val) return;
 			const content = data.currentContent.val;
 			const status = data.currentStatus.val;
-			if (status.loading && !content.length) {
+			if (status.isLoading && !content.length) {
 				scheduleRestore();
 				return;
 			}
@@ -201,7 +208,7 @@ export function Reader(open: State<boolean>, ui: UiState) {
 				h1(data.currentTitle.val),
 				p({ class: nameMap.statusText }, status.error),
 			);
-		} else if (status.loading && !content.length) {
+		} else if (status.isLoading && !content.length) {
 			children.push(
 				h1(data.currentTitle.val),
 				p({ class: nameMap.statusText }, "Loading chapter content..."),
@@ -249,7 +256,7 @@ export function Reader(open: State<boolean>, ui: UiState) {
 
 	van.derive(() => {
 		const chapterUrl = currentChapterUrl.val;
-		const mode = data.navigationMode.val;
+		const mode = data.navMode.val;
 		if (!chapterUrl) return;
 		if (lastChapterUrl && lastChapterUrl !== chapterUrl) {
 			persistCurrentScroll(lastChapterUrl);
@@ -264,7 +271,7 @@ export function Reader(open: State<boolean>, ui: UiState) {
 	van.derive(() => {
 		currentChapterUrl.val;
 		data.currentContent.val;
-		data.currentStatus.val.loading;
+		data.currentStatus.val.isLoading;
 		data.currentStatus.val.error;
 		scheduleRestore();
 	});

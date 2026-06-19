@@ -1,25 +1,32 @@
 import type { InterfaceDensity } from "../types";
+import { INTERFACE_DENSITY_VALUES } from "../types";
 
 const compactScale = 0.85;
 const comfortableScale = 1;
 const spaciousScale = 1.15;
 const densityUnit = "em";
+const [compactDensity, comfortableDensity, spaciousDensity] =
+	INTERFACE_DENSITY_VALUES;
 
 type DensityPreset = Record<InterfaceDensity, number>;
 type DensityValue = number | [number, number];
 type DensityTokenDefinition = Record<InterfaceDensity, DensityValue>;
 
 const interfaceDensityPresetScales: DensityPreset = {
-	compact: compactScale,
-	comfortable: comfortableScale,
-	spacious: spaciousScale,
+	[compactDensity]: compactScale,
+	[comfortableDensity]: comfortableScale,
+	[spaciousDensity]: spaciousScale,
 };
 
 const triplet = (
 	compact: DensityValue,
 	comfortable: DensityValue,
 	spacious: DensityValue,
-): DensityTokenDefinition => ({ compact, comfortable, spacious });
+): DensityTokenDefinition => ({
+	[compactDensity]: compact,
+	[comfortableDensity]: comfortable,
+	[spaciousDensity]: spacious,
+});
 
 const dockOffsetTriplet = triplet(0.75, 2, 3);
 const fabSizeTriplet = triplet(2.75, 3.5, 4);
@@ -73,14 +80,14 @@ function lerp(a: number, b: number, t: number) {
 function getDensitySegment(scale: number) {
 	if (scale <= comfortableScale) {
 		return {
-			startDensity: "compact" as InterfaceDensity,
-			endDensity: "comfortable" as InterfaceDensity,
+			fromDensity: compactDensity as InterfaceDensity,
+			toDensity: comfortableDensity as InterfaceDensity,
 			progress: (scale - compactScale) / (comfortableScale - compactScale),
 		};
 	}
 	return {
-		startDensity: "comfortable" as InterfaceDensity,
-		endDensity: "spacious" as InterfaceDensity,
+		fromDensity: comfortableDensity as InterfaceDensity,
+		toDensity: spaciousDensity as InterfaceDensity,
 		progress: (scale - comfortableScale) / (spaciousScale - comfortableScale),
 	};
 }
@@ -121,20 +128,20 @@ export function getNearestInterfaceDensity(scale: number): InterfaceDensity {
 			Math.abs(candidate[1] - scale) < Math.abs(closest[1] - scale)
 				? candidate
 				: closest,
-		["comfortable", interfaceDensityPresetScales.comfortable],
+		[comfortableDensity, interfaceDensityPresetScales[comfortableDensity]],
 	)[0];
 }
 
 export function generateDensityVars(scale: number) {
-	const { startDensity, endDensity, progress } = getDensitySegment(scale);
+	const { fromDensity, toDensity, progress } = getDensitySegment(scale);
 	const vars: Record<string, string> = {
 		"--ui-nav-pad-block": "0",
 		"--ui-arrow-pad-block": "0",
 	};
 
 	for (const [token, definition] of Object.entries(densityTokenDefinitions)) {
-		const start = definition[startDensity];
-		const end = definition[endDensity];
+		const start = definition[fromDensity];
+		const end = definition[toDensity];
 		const value = interpolateValue(start, end, progress);
 		vars[token] = formatValue(value);
 	}
