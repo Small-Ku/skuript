@@ -1,5 +1,9 @@
 import van from "vanjs-core";
 import { defaultUiPreferences, type UiPreferences } from "../core/preferences";
+import {
+	getInterfaceDensityPresetScale,
+	getNearestInterfaceDensity,
+} from "./theme/density";
 import type {
 	InterfaceDensity,
 	LineSpacingPreset,
@@ -41,7 +45,11 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const interfaceDensity = van.state<InterfaceDensity>(
 		initial.interfaceDensity,
 	);
-	const interfaceScale = van.state(initial.interfaceScale);
+	const interfaceScale = van.state(
+		initial.advancedInterfaceDensity
+			? initial.interfaceScale
+			: getInterfaceDensityPresetScale(initial.interfaceDensity),
+	);
 	const panelPosition = van.state<PanelPosition>(initial.panelPosition);
 	const systemPrefersDark = van.state<boolean>(
 		window.matchMedia("(prefers-color-scheme: dark)").matches,
@@ -56,6 +64,20 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 				: "light"
 			: themeMode.val,
 	);
+
+	van.derive(() => {
+		if (advancedInterfaceDensity.val) {
+			const nearestDensity = getNearestInterfaceDensity(interfaceScale.val);
+			if (interfaceDensity.val !== nearestDensity) {
+				interfaceDensity.val = nearestDensity;
+			}
+			return;
+		}
+		const presetScale = getInterfaceDensityPresetScale(interfaceDensity.val);
+		if (interfaceScale.val !== presetScale) {
+			interfaceScale.val = presetScale;
+		}
+	});
 
 	return {
 		controlsVisible,

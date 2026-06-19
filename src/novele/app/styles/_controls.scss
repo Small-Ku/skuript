@@ -61,14 +61,32 @@
 		align-items: center;
 		gap: var(--ui-nav-gap);
 		height: var(--ui-nav-h);
-		padding: var(--ui-nav-pad);
+		padding-block: var(--ui-nav-pad-block);
+		padding-inline: var(--ui-nav-pad-inline);
 		border-radius: 999px;
 		box-shadow: var(--shadow-glow-primary);
 	}
 
 	.glassArrows {
-		padding: var(--ui-arrow-pad);
+		padding-block: var(--ui-arrow-pad-block);
+		padding-inline: var(--ui-arrow-pad-inline);
 		gap: var(--ui-arrow-gap);
+	}
+
+	.compactStartPad {
+		padding-inline-start: var(--ui-nav-edge-pad-inline);
+	}
+
+	.compactEndPad {
+		padding-inline-end: var(--ui-nav-edge-pad-inline);
+	}
+
+	.glassArrows.compactStartPad {
+		padding-inline-start: var(--ui-arrow-edge-pad-inline);
+	}
+
+	.glassArrows.compactEndPad {
+		padding-inline-end: var(--ui-arrow-edge-pad-inline);
 	}
 
 	.navButton {

@@ -122,13 +122,17 @@ export function BottomControls(
 					.join(" "),
 		},
 		div(
-			{ class: `${nameMap.glass} ${nameMap.glassNav}` },
+			{
+				class: `${nameMap.glass} ${nameMap.glassNav} ${nameMap.compactStartPad} ${nameMap.compactEndPad}`,
+			},
 			chapterButton,
 			() => (data.currentCommentsAvailable.val ? commentButton : ""),
 			settingsButton,
 		),
 		div(
-			{ class: `${nameMap.glass} ${nameMap.glassNav} ${nameMap.glassArrows}` },
+			{
+				class: `${nameMap.glass} ${nameMap.glassNav} ${nameMap.glassArrows} ${nameMap.compactStartPad} ${nameMap.compactEndPad}`,
+			},
 			button(
 				{
 					class: nameMap.navButton,

@@ -4,6 +4,7 @@ import { bindUiPreferences, loadUiPreferences } from "../core/preferences";
 import { Reader } from "./reader";
 import { createUiState } from "./state";
 import nameMap from "./styles/style.module.scss";
+import { generateDensityVars } from "./theme/density";
 import { generateThemeVars } from "./theme/theme";
 
 const { button, div, span } = van.tags;
@@ -20,11 +21,6 @@ export const FabApp = () => {
 				ui.effectiveTheme.val === "dark"
 					? nameMap.themeDark
 					: nameMap.themeLight,
-				ui.interfaceDensity.val === "compact"
-					? nameMap.uiDensityCompact
-					: ui.interfaceDensity.val === "spacious"
-						? nameMap.uiDensitySpacious
-						: nameMap.uiDensityComfortable,
 				ui.panelPosition.val === "left" ? nameMap.uiDirectionLeft : "",
 			]
 				.filter(Boolean)
@@ -36,12 +32,11 @@ export const FabApp = () => {
 				isDark ? ui.darkSurfaceSeed.val : ui.lightSurfaceSeed.val,
 				isDark,
 			);
-			const fontSize = ui.advancedInterfaceDensity.val
-				? `${ui.interfaceScale.val * 16}px`
-				: "16px";
+			const densityVars = generateDensityVars(ui.interfaceScale.val);
 			return [
 				...Object.entries(vars).map(([key, value]) => `${key}:${value}`),
-				`font-size:${fontSize}`,
+				...Object.entries(densityVars).map(([key, value]) => `${key}:${value}`),
+				"font-size:16px",
 			].join(";");
 		},
 	});

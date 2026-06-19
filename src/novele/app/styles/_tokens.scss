@@ -58,13 +58,17 @@
 		--ui-badge-pad: 0.75em 1.5em;
 		--ui-badge-txt: 0.875em;
 		--ui-bot-bot: 2em;
-		--ui-bot-right: calc(2em + 3.5em + 1em);
+		--ui-bot-right: calc(var(--ui-bot-bot) + var(--ui-fab-w) + var(--ui-bot-gap));
 		--ui-bot-gap: 1em;
 		--ui-nav-h: 3.5em;
-		--ui-nav-pad: 0 1.5em;
-		--ui-nav-gap: 1.5em;
-		--ui-arrow-pad: 0 1em;
-		--ui-arrow-gap: 0.75em;
+		--ui-nav-pad-block: 0;
+		--ui-nav-pad-inline: 1.5em;
+		--ui-nav-edge-pad-inline: 0.6em;
+		--ui-nav-gap: 0.7em;
+		--ui-arrow-pad-block: 0;
+		--ui-arrow-pad-inline: 1em;
+		--ui-arrow-edge-pad-inline: 0.45em;
+		--ui-arrow-gap: 0.45em;
 		--ui-fab-bot: 2em;
 		--ui-fab-right: 2em;
 		--ui-fab-w: 3.5em;
@@ -159,82 +163,6 @@
 		--color-primary: #f43f5e;
 		--color-primary-glow: rgb(244 63 94 / 0.16);
 		--shadow-glow-primary: 0 8px 32px var(--color-primary-glow);
-	}
-
-	.uiDensityCompact {
-		--ui-top-pad: 0.5em;
-		--ui-badge-pad: 0.5em 1em;
-		--ui-badge-txt: 0.75em;
-		--ui-bot-bot: 0.75em;
-		--ui-bot-right: calc(0.75em + 2.75em + 0.5em);
-		--ui-bot-gap: 0.5em;
-		--ui-nav-h: 2.75em;
-		--ui-nav-pad: 0 1em;
-		--ui-nav-gap: 1em;
-		--ui-arrow-pad: 0 0.75em;
-		--ui-arrow-gap: 0.5em;
-		--ui-fab-bot: 0.75em;
-		--ui-fab-right: 0.75em;
-		--ui-fab-w: 2.75em;
-		--ui-fab-h: 2.75em;
-		--ui-draw-head-pad: 0.5em 1em;
-		--ui-draw-title: 1.125em;
-		--ui-set-body-pad: 0.75em 1.25em;
-		--ui-tab-mb: 1em;
-		--ui-tab-pad: 0.2em;
-		--ui-tab-btn-pad: 0.35em 0;
-		--ui-tab-btn-txt: 0.75em;
-		--ui-tab-gap: 1em;
-		--ui-lbl-mb: 0.5em;
-		--ui-btn-row-pad: 0.25em 0.5em;
-		--ui-btn-row-txt: 0.8em;
-		--ui-slide-head-mb: 0.5em;
-		--ui-chap-nav-pad: 0.75em 1.25em;
-		--ui-chap-nav-gap: 0.25em;
-		--ui-chap-link-pad: 0.5em 0.75em;
-		--ui-chap-link-txt: 0.875em;
-		--ui-comm-pad: 0.75em 1.25em;
-		--ui-comm-gap: 0.75em;
-		--ui-add-comm-pad: 0.75em 1.25em;
-	}
-
-	.uiDensityComfortable {}
-
-	.uiDensitySpacious {
-		--ui-top-pad: 2em;
-		--ui-badge-pad: 1em 2em;
-		--ui-badge-txt: 1em;
-		--ui-bot-bot: 3em;
-		--ui-bot-right: calc(3em + 4em + 1.5em);
-		--ui-bot-gap: 1.5em;
-		--ui-nav-h: 4em;
-		--ui-nav-pad: 0 2em;
-		--ui-nav-gap: 2em;
-		--ui-arrow-pad: 0 1.25em;
-		--ui-arrow-gap: 1em;
-		--ui-fab-bot: 3em;
-		--ui-fab-right: 3em;
-		--ui-fab-w: 4em;
-		--ui-fab-h: 4em;
-		--ui-draw-head-pad: 1.5em 2em;
-		--ui-draw-title: 1.5em;
-		--ui-set-body-pad: 2em;
-		--ui-tab-mb: 3em;
-		--ui-tab-pad: 0.5em;
-		--ui-tab-btn-pad: 0.75em 0;
-		--ui-tab-btn-txt: 1em;
-		--ui-tab-gap: 2em;
-		--ui-lbl-mb: 1.25em;
-		--ui-btn-row-pad: 0.5em 1em;
-		--ui-btn-row-txt: 1em;
-		--ui-slide-head-mb: 1.25em;
-		--ui-chap-nav-pad: 2em;
-		--ui-chap-nav-gap: 1em;
-		--ui-chap-link-pad: 1.5em;
-		--ui-chap-link-txt: 1.125em;
-		--ui-comm-pad: 2em;
-		--ui-comm-gap: 2em;
-		--ui-add-comm-pad: 2em;
 	}
 
 	.fontReader {

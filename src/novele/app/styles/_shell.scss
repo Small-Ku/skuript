@@ -67,6 +67,7 @@
 		transition:
 			width $duration-medium2 $easing-standard,
 			padding $duration-medium2 $easing-standard,
+			gap $duration-medium2 $easing-standard,
 			transform $duration-medium2 $easing-standard,
 			color $duration-short4 $easing-standard,
 			background-color $duration-short4 $easing-standard,
@@ -86,6 +87,7 @@
 
 	.fabOpen {
 		padding: 0;
+		gap: 0;
 	}
 
 	.overlayOpen {
