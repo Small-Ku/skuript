@@ -5,6 +5,7 @@ import {
 	getNearestInterfaceDensity,
 } from "./theme/density";
 import type {
+	DrawerHeaderPosition,
 	InterfaceDensity,
 	LineSpacingPreset,
 	Oklch,
@@ -16,6 +17,7 @@ import type {
 	ThemeMode,
 	Typeface,
 } from "./types";
+import { isBuiltInTypeface } from "./types";
 
 export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const controlsVisible = van.state(true);
@@ -51,6 +53,9 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 			: getInterfaceDensityPresetScale(initial.interfaceDensity),
 	);
 	const panelPosition = van.state<PanelPosition>(initial.panelPosition);
+	const drawerHeaderPosition = van.state<DrawerHeaderPosition>(
+		initial.drawerHeaderPosition,
+	);
 	const systemPrefersDark = van.state<boolean>(
 		window.matchMedia("(prefers-color-scheme: dark)").matches,
 	);
@@ -79,6 +84,15 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 		}
 	});
 
+	van.derive(() => {
+		if (
+			!isBuiltInTypeface(typeface.val) &&
+			customTypeface.val !== typeface.val
+		) {
+			customTypeface.val = typeface.val;
+		}
+	});
+
 	return {
 		controlsVisible,
 		activeOverlay,
@@ -103,6 +117,7 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 		interfaceDensity,
 		interfaceScale,
 		panelPosition,
+		drawerHeaderPosition,
 		systemPrefersDark,
 		effectiveTheme,
 		commentAuthor,

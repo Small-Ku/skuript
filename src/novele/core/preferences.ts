@@ -1,5 +1,6 @@
 import van, { type State } from "vanjs-core";
 import type {
+	DrawerHeaderPosition,
 	InterfaceDensity,
 	LineSpacingPreset,
 	Oklch,
@@ -10,12 +11,13 @@ import type {
 	Typeface,
 } from "../app/types";
 import {
+	BUILT_IN_TYPEFACE_VALUES,
 	COMPACT_REGULAR_RELAXED_VALUES,
+	DRAWER_HEADER_POSITION_VALUES,
 	INTERFACE_DENSITY_VALUES,
 	PANEL_POSITION_VALUES,
 	READING_WIDTH_PRESET_VALUES,
 	THEME_MODE_VALUES,
-	TYPEFACE_VALUES,
 } from "../app/types";
 
 export type UiPreferences = {
@@ -39,6 +41,7 @@ export type UiPreferences = {
 	interfaceDensity: InterfaceDensity;
 	interfaceScale: number;
 	panelPosition: PanelPosition;
+	drawerHeaderPosition: DrawerHeaderPosition;
 	commentAuthor: string;
 };
 
@@ -57,7 +60,6 @@ export type PersistedUiState = {
 	[K in keyof UiPreferences]: State<UiPreferences[K]>;
 };
 
-const typefaceSet = new Set<Typeface>(TYPEFACE_VALUES);
 const compactRegularRelaxedSet = new Set(COMPACT_REGULAR_RELAXED_VALUES);
 const readingWidthPresetSet = new Set<ReadingWidthPreset>(
 	READING_WIDTH_PRESET_VALUES,
@@ -65,6 +67,9 @@ const readingWidthPresetSet = new Set<ReadingWidthPreset>(
 const themeModeSet = new Set<ThemeMode>(THEME_MODE_VALUES);
 const interfaceDensitySet = new Set<InterfaceDensity>(INTERFACE_DENSITY_VALUES);
 const panelPositionSet = new Set<PanelPosition>(PANEL_POSITION_VALUES);
+const drawerHeaderPositionSet = new Set<DrawerHeaderPosition>(
+	DRAWER_HEADER_POSITION_VALUES,
+);
 const regularPreset = COMPACT_REGULAR_RELAXED_VALUES[1];
 const regularWidth = READING_WIDTH_PRESET_VALUES[1];
 const comfortableDensity = INTERFACE_DENSITY_VALUES[1];
@@ -116,7 +121,7 @@ const preferenceSchema = {
 	typeface: {
 		storageKey: "novele:pref:typeface",
 		seedValue: "fontReader" as Typeface,
-		parse: (value) => parseEnum(value, typefaceSet, "fontReader" as Typeface),
+		parse: (value) => parseString(value, "fontReader") as Typeface,
 	},
 	customTypeface: {
 		storageKey: "novele:pref:customTypeface",
@@ -243,6 +248,12 @@ const preferenceSchema = {
 		parse: (value) =>
 			parseEnum(value, panelPositionSet, "right" as PanelPosition),
 	},
+	drawerHeaderPosition: {
+		storageKey: "novele:pref:drawerHeaderPosition",
+		seedValue: "top" as DrawerHeaderPosition,
+		parse: (value) =>
+			parseEnum(value, drawerHeaderPositionSet, "top" as DrawerHeaderPosition),
+	},
 	commentAuthor: {
 		storageKey: "novele:pref:commentAuthor",
 		seedValue: "匿名",
@@ -306,6 +317,10 @@ function sanitizePreferences(values: Record<string, unknown>): UiPreferences {
 	const preferences = {} as UiPreferences;
 	for (const key of preferenceKeys) {
 		assignSanitizedPreference(preferences, key, values);
+	}
+	if (preferences.typeface === "custom") {
+		preferences.typeface =
+			preferences.customTypeface || BUILT_IN_TYPEFACE_VALUES[0];
 	}
 	return preferences;
 }

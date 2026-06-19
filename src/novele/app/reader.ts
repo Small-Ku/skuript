@@ -14,6 +14,7 @@ import type { UiState } from "./state";
 import nameMap from "./styles/style.module.scss";
 import {
 	COMPACT_REGULAR_RELAXED_VALUES,
+	isBuiltInTypeface,
 	READING_WIDTH_PRESET_VALUES,
 } from "./types";
 
@@ -49,8 +50,8 @@ function readerStyle(ui: UiState) {
 			? ui.lineSpacingValue.val
 			: lineSpacingPresetMap[ui.lineSpacingPreset.val];
 		const style = [`font-size:${fontSize}px`, `line-height:${lineHeight}`];
-		if (ui.typeface.val === "custom") {
-			style.push(`font-family:${ui.customTypeface.val}`);
+		if (!isBuiltInTypeface(ui.typeface.val)) {
+			style.push(`font-family:${ui.typeface.val}`);
 		}
 		return style.join(";");
 	};
@@ -75,13 +76,14 @@ function textContentStyle(ui: UiState) {
 }
 
 function currentTypefaceClass(ui: UiState) {
+	if (!isBuiltInTypeface(ui.typeface.val)) {
+		return "";
+	}
 	switch (ui.typeface.val) {
 		case "fontUi":
 			return nameMap.fontUi;
 		case "fontLiterata":
 			return nameMap.fontLiterata;
-		case "custom":
-			return "";
 		default:
 			return nameMap.fontReader;
 	}

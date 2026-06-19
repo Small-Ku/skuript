@@ -2,13 +2,19 @@ export type OverlayName = "chapters" | "comments" | "settings";
 
 export type SettingsTab = "typography" | "interface";
 
-export const TYPEFACE_VALUES = [
+export const BUILT_IN_TYPEFACE_VALUES = [
 	"fontReader",
 	"fontUi",
 	"fontLiterata",
-	"custom",
 ] as const;
-export type Typeface = "fontReader" | "fontUi" | "fontLiterata" | "custom";
+export type BuiltInTypeface = (typeof BUILT_IN_TYPEFACE_VALUES)[number];
+export type Typeface = BuiltInTypeface | string;
+
+export function isBuiltInTypeface(
+	typeface: string,
+): typeface is BuiltInTypeface {
+	return (BUILT_IN_TYPEFACE_VALUES as readonly string[]).includes(typeface);
+}
 
 /** @dense-enum-values c r x */
 export const COMPACT_REGULAR_RELAXED_VALUES = [
@@ -41,6 +47,10 @@ export type InterfaceDensity = (typeof INTERFACE_DENSITY_VALUES)[number];
 
 export const PANEL_POSITION_VALUES = ["left", "right"] as const;
 export type PanelPosition = "left" | "right";
+
+export const DRAWER_HEADER_POSITION_VALUES = ["top", "bottom"] as const;
+export type DrawerHeaderPosition =
+	(typeof DRAWER_HEADER_POSITION_VALUES)[number];
 
 export type RGB = {
 	r: number;

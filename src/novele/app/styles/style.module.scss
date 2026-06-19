@@ -3,6 +3,7 @@
 @use "./reader" as reader;
 @use "./controls" as controls;
 @use "./drawers" as drawers;
+@use "./comments" as comments;
 @use "./settings" as settings;
 
 @include tokens.tokens;
@@ -10,4 +11,5 @@
 @include reader.reader;
 @include controls.controls;
 @include drawers.drawers;
+@include comments.comments;
 @include settings.settings;
