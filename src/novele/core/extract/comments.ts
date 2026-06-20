@@ -1,3 +1,4 @@
+import { storage } from "../storage";
 import { hostname } from "./hostname-map";
 import type { CommentItem, CommentPageRef, CommentScope } from "./storage";
 
@@ -26,8 +27,6 @@ export const COMMENT_RATE_LIMIT_MESSAGE =
 	"The site rate-limited this comment request with HTTP 429. Wait a bit and try again. Your draft was kept.";
 export const COMMENT_MISSING_AFTER_REDIRECT_MESSAGE =
 	"The site redirected to a new comment anchor, but the comment was missing from the returned page. This looks like a site-side moderation or cache issue, not your fault. Your draft was kept so you can retry.";
-
-const commentPages = new Map<string, CommentPage>();
 
 function normalizeCommentBaseUrl(url: string): string {
 	const baseUrl = new URL(url);
@@ -186,13 +185,13 @@ export function parseCommentPage(
 		default:
 			page = { ref, items: [] };
 	}
-	commentPages.set(ref.url, page);
+	storage.comments.set(ref.url, page);
 	return page;
 }
 
 export function getCachedCommentBundle(refs: CommentPageRef[]): CommentBundle {
 	const pages = refs.flatMap((ref) => {
-		const page = commentPages.get(ref.url);
+		const page = storage.comments.get(ref.url) as CommentPage | undefined;
 		return page ? [page] : [];
 	});
 	return {

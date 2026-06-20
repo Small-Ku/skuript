@@ -1,4 +1,4 @@
-const SCROLL_STORAGE_PREFIX = "novele:chapter-scroll:";
+import { storage } from "./storage";
 
 /** @mangle-preserve Persisted as JSON in sessionStorage. */
 export type ScrollRecord = {
@@ -13,31 +13,21 @@ export function normalizeChapterUrl(url: string) {
 }
 
 function getScrollStorageKey(chapterUrl: string) {
-	return `${SCROLL_STORAGE_PREFIX}${normalizeChapterUrl(chapterUrl)}`;
+	return normalizeChapterUrl(chapterUrl);
 }
 
 export function readChapterScrollRecord(
 	chapterUrl: string,
 ): ScrollRecord | undefined {
-	const stored = sessionStorage.getItem(getScrollStorageKey(chapterUrl));
-	if (!stored) return;
-	try {
-		const parsed = JSON.parse(stored) as Partial<ScrollRecord>;
-		if (typeof parsed.ratio !== "number" || Number.isNaN(parsed.ratio)) return;
-		return {
-			ratio: Math.max(0, Math.min(1, parsed.ratio)),
-		};
-	} catch {
-		sessionStorage.removeItem(getScrollStorageKey(chapterUrl));
-		return;
-	}
+	const ratio = storage.readerSession.readScrollRatio(
+		getScrollStorageKey(chapterUrl),
+	);
+	return ratio === undefined ? undefined : { ratio };
 }
 
 export function writeChapterScrollRecord(chapterUrl: string, ratio: number) {
-	sessionStorage.setItem(
+	storage.readerSession.scheduleScrollRatio(
 		getScrollStorageKey(chapterUrl),
-		JSON.stringify({
-			ratio: Math.max(0, Math.min(1, ratio)),
-		} satisfies ScrollRecord),
+		ratio,
 	);
 }

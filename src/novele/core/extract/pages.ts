@@ -2,8 +2,10 @@ import { getCommentPageRefs } from "./comments";
 import { hostname } from "./hostname-map";
 import {
 	type CommentPageRef,
+	commitPage,
 	deletePage as deleteStoredPage,
 	getPage as getStoredPage,
+	hydratePage,
 	type PageSlice,
 	type StoredPage,
 	setPage as setStoredPage,
@@ -74,8 +76,8 @@ function mergeTitle(current: Set<string>, title?: string) {
 }
 
 function persistPage(page: Page): Page {
-	page.lastModified = new Date();
-	return setStoredPage(page);
+	page.lastChanged = new Date();
+	return commitPage(page);
 }
 
 async function yieldToBrowser() {
@@ -108,12 +110,13 @@ export function registerPageRaw(url: string, raw: string, title?: string) {
 	return persistPage({
 		url,
 		raw,
+		persistedRaw: raw,
 		dom: page?.dom,
 		title: mergeTitle(page?.title ?? new Set<string>(), title),
 		slices: page?.slices,
 		resolvedChapter: page?.resolvedChapter,
 		additionalUrls: page?.additionalUrls,
-		lastModified: new Date(),
+		lastChanged: new Date(),
 	});
 }
 
@@ -122,12 +125,13 @@ export function registerCurrentPage(url: string, title?: string) {
 	return persistPage({
 		url,
 		raw: document.documentElement.outerHTML,
+		persistedRaw: document.documentElement.outerHTML,
 		dom: document,
 		title: mergeTitle(page?.title ?? new Set<string>(), title),
 		slices: page?.slices,
 		resolvedChapter: page?.resolvedChapter,
 		additionalUrls: page?.additionalUrls,
-		lastModified: new Date(),
+		lastChanged: new Date(),
 	});
 }
 
@@ -142,12 +146,13 @@ export function setAdditionalPageUrls(url: string, additionalUrls: string[]) {
 export async function parsePageDom(url: string) {
 	const page = ensurePage(url);
 	if (page.dom) return page;
+	page.raw ??= page.persistedRaw;
 	if (!page.raw) throw new Error("Page not parsed and no raw content");
 
 	const parser = new DOMParser();
 	page.dom = parser.parseFromString(page.raw, "text/html");
 	delete page.raw;
-	persistPage(page);
+	setStoredPage(page);
 	return page;
 }
 
@@ -155,7 +160,7 @@ export function releasePageDom(url: string) {
 	const page = getStoredPage(url);
 	if (!page?.dom) return;
 	delete page.dom;
-	persistPage(page);
+	setStoredPage(page);
 }
 
 export async function getContent(doc: Document): Promise<string[]> {
@@ -314,3 +319,5 @@ export async function getPage(url: string): Promise<Page> {
 export function findPage(url: string): Page {
 	return ensurePage(url);
 }
+
+export { hydratePage };

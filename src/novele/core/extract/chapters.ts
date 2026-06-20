@@ -1,3 +1,4 @@
+import { storage } from "../storage";
 import { peekPage } from "./pages";
 import {
 	type ChapterCandidate,
@@ -43,6 +44,14 @@ type ChapterMarker = {
 type CandidateScoreBin = {
 	candidateRef: CandidateWithRef;
 	score: number;
+};
+
+type ParsedPageState = {
+	parsedPages: ParsedLinkPage[];
+	parsedPageKey: string;
+	loadedLastLinkIndex: number;
+	allLinksLoaded: boolean;
+	linkIndex: number;
 };
 
 const CLOSE_SEQUENCE_LINE_DISTANCE = 3;
@@ -239,6 +248,31 @@ function getParsedLinkPages(orderedUrls: string[]): ParsedLinkPage[] {
 		const page = peekPage(url);
 		return page?.slices?.length ? [{ url, linkIndex, page }] : [];
 	});
+}
+
+function getParsedPageState(
+	url: string,
+	orderedUrls: string[],
+): ParsedPageState {
+	const linkIndex = Math.max(0, orderedUrls.indexOf(url));
+	const parsedPages = getParsedLinkPages(orderedUrls);
+	const parsedPageKey = parsedPages
+		.map(
+			(parsedPage) =>
+				`${parsedPage.linkIndex}:${parsedPage.page.lastChanged.getTime()}`,
+		)
+		.join(",");
+	const loadedLastLinkIndex = Math.max(
+		...parsedPages.map((parsedPage) => parsedPage.linkIndex),
+		linkIndex,
+	);
+	return {
+		parsedPages,
+		parsedPageKey,
+		loadedLastLinkIndex,
+		allLinksLoaded: loadedLastLinkIndex >= orderedUrls.length - 1,
+		linkIndex,
+	};
 }
 
 function buildChapterIndex(parsedPages: ParsedLinkPage[]) {
@@ -600,19 +634,13 @@ export function resolvePageChapter(
 		};
 	}
 
-	const linkIndex = Math.max(0, orderedUrls.indexOf(url));
-	const parsedPages = getParsedLinkPages(orderedUrls);
-	const parsedPageKey = parsedPages
-		.map(
-			(parsedPage) =>
-				`${parsedPage.linkIndex}:${parsedPage.page.lastModified.getTime()}`,
-		)
-		.join(",");
-	const loadedLastLinkIndex = Math.max(
-		...parsedPages.map((parsedPage) => parsedPage.linkIndex),
+	const {
 		linkIndex,
-	);
-	const allLinksLoaded = loadedLastLinkIndex >= orderedUrls.length - 1;
+		parsedPages,
+		parsedPageKey,
+		loadedLastLinkIndex,
+		allLinksLoaded,
+	} = getParsedPageState(url, orderedUrls);
 	const cached = page.resolvedChapter;
 	if (
 		cached?.isComplete &&
@@ -668,12 +696,62 @@ export function resolvePageChapter(
 	page.resolvedChapter = resolvedChapter;
 	page.slices = [...page.slices];
 	setPage(page);
+	void storage.chapterCache.put(url, {
+		schemaVersion: 1,
+		title: resolvedChapter.title,
+		textLines: resolvedChapter.textLines,
+		chapterIndex: resolvedChapter.chapterIndex,
+		startUrl: resolvedChapter.startUrl,
+		startLinkIndex: resolvedChapter.startLinkIndex,
+		boundaryMode: resolvedChapter.boundaryMode,
+		isComplete: resolvedChapter.isComplete,
+		commentPages: resolvedChapter.commentPages,
+		resolvedPageKey: resolvedChapter.resolvedPageKey,
+		resolvedThroughLinkIndex: resolvedChapter.resolvedThroughLinkIndex,
+		lastAccess: Date.now(),
+		updatedAt: Date.now(),
+	});
 
 	return {
 		...resolvedChapter,
 		nextBoundaryFound,
 		candidateMap,
 	};
+}
+
+export async function hydrateResolvedChapter(
+	url: string,
+	orderedUrls: string[] = [url],
+): Promise<ResolvedChapter | undefined> {
+	const page = peekPage(url);
+	if (!page?.slices?.length) return;
+	if (page.resolvedChapter?.textLines.length) return page.resolvedChapter;
+	const cached = await storage.chapterCache.get(url);
+	if (!cached || cached.schemaVersion !== 1) return;
+	const { parsedPageKey, loadedLastLinkIndex } = getParsedPageState(
+		url,
+		orderedUrls,
+	);
+	if (
+		cached.resolvedPageKey !== parsedPageKey ||
+		cached.resolvedThroughLinkIndex !== loadedLastLinkIndex
+	) {
+		return;
+	}
+	page.resolvedChapter = {
+		title: cached.title,
+		textLines: cached.textLines,
+		chapterIndex: cached.chapterIndex,
+		startUrl: cached.startUrl,
+		startLinkIndex: cached.startLinkIndex,
+		boundaryMode: cached.boundaryMode,
+		isComplete: cached.isComplete,
+		commentPages: cached.commentPages,
+		resolvedPageKey: cached.resolvedPageKey,
+		resolvedThroughLinkIndex: cached.resolvedThroughLinkIndex,
+	};
+	setPage(page);
+	return page.resolvedChapter;
 }
 
 function zhDigitToNumber(digit: string) {

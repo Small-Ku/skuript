@@ -19,6 +19,8 @@ import {
 	READING_WIDTH_PRESET_VALUES,
 	THEME_MODE_VALUES,
 } from "../app/types";
+import { storage } from "./storage";
+import type { PreferenceBlobName } from "./storage/types";
 
 export type UiPreferences = {
 	typeface: Typeface;
@@ -46,7 +48,8 @@ export type UiPreferences = {
 };
 
 type PreferenceSpec<K extends keyof UiPreferences> = {
-	storageKey: string;
+	storageBlob: PreferenceBlobName;
+	storageField: string;
 	seedValue: UiPreferences[K];
 	parse: (value: unknown) => UiPreferences[K];
 	debounceMs?: number;
@@ -58,6 +61,13 @@ type PreferenceSchema = {
 
 export type PersistedUiState = {
 	[K in keyof UiPreferences]: State<UiPreferences[K]>;
+};
+
+type PreferenceBlobSet = {
+	reader: Record<string, unknown>;
+	theme: Record<string, unknown>;
+	ui: Record<string, unknown>;
+	advanced: Record<string, unknown>;
 };
 
 const compactRegularRelaxedSet = new Set(COMPACT_REGULAR_RELAXED_VALUES);
@@ -119,29 +129,34 @@ function parseOklch(value: unknown, fallback: Oklch): Oklch {
 
 const preferenceSchema = {
 	typeface: {
-		storageKey: "novele:pref:typeface",
+		storageBlob: "reader",
+		storageField: "typeface",
 		seedValue: "fontReader" as Typeface,
 		parse: (value) => parseString(value, "fontReader") as Typeface,
 	},
 	customTypeface: {
-		storageKey: "novele:pref:customTypeface",
+		storageBlob: "reader",
+		storageField: "customTypeface",
 		seedValue: "Arial",
 		parse: (value) => parseString(value, "Arial"),
 		debounceMs: 150,
 	},
 	advancedTextSize: {
-		storageKey: "novele:pref:advancedTextSize",
+		storageBlob: "reader",
+		storageField: "advancedTextSize",
 		seedValue: true,
 		parse: (value) => parseBoolean(value, true),
 	},
 	textSizeValue: {
-		storageKey: "novele:pref:textSizeValue",
+		storageBlob: "reader",
+		storageField: "textSizeValue",
 		seedValue: 19,
 		parse: (value) => parseNumber(value, 19, 14, 28),
 		debounceMs: 150,
 	},
 	textSizePreset: {
-		storageKey: "novele:pref:textSizePreset",
+		storageBlob: "reader",
+		storageField: "textSizePreset",
 		seedValue: regularPreset as TextSizePreset,
 		parse: (value) =>
 			parseEnum(
@@ -151,18 +166,21 @@ const preferenceSchema = {
 			),
 	},
 	advancedLineSpacing: {
-		storageKey: "novele:pref:advancedLineSpacing",
+		storageBlob: "reader",
+		storageField: "advancedLineSpacing",
 		seedValue: true,
 		parse: (value) => parseBoolean(value, true),
 	},
 	lineSpacingValue: {
-		storageKey: "novele:pref:lineSpacingValue",
+		storageBlob: "reader",
+		storageField: "lineSpacingValue",
 		seedValue: 1.6,
 		parse: (value) => parseNumber(value, 1.6, 1.1, 2.5),
 		debounceMs: 150,
 	},
 	lineSpacingPreset: {
-		storageKey: "novele:pref:lineSpacingPreset",
+		storageBlob: "reader",
+		storageField: "lineSpacingPreset",
 		seedValue: regularPreset as LineSpacingPreset,
 		parse: (value) =>
 			parseEnum(
@@ -172,18 +190,21 @@ const preferenceSchema = {
 			),
 	},
 	advancedReadingWidth: {
-		storageKey: "novele:pref:advancedReadingWidth",
+		storageBlob: "reader",
+		storageField: "advancedReadingWidth",
 		seedValue: true,
 		parse: (value) => parseBoolean(value, true),
 	},
 	readingWidthValue: {
-		storageKey: "novele:pref:readingWidthValue",
+		storageBlob: "reader",
+		storageField: "readingWidthValue",
 		seedValue: 42,
 		parse: (value) => parseNumber(value, 42, 30, 60),
 		debounceMs: 150,
 	},
 	readingWidthPreset: {
-		storageKey: "novele:pref:readingWidthPreset",
+		storageBlob: "reader",
+		storageField: "readingWidthPreset",
 		seedValue: regularWidth as ReadingWidthPreset,
 		parse: (value) =>
 			parseEnum(
@@ -193,41 +214,48 @@ const preferenceSchema = {
 			),
 	},
 	themeMode: {
-		storageKey: "novele:pref:themeMode",
+		storageBlob: "theme",
+		storageField: "themeMode",
 		seedValue: "dark" as ThemeMode,
 		parse: (value) => parseEnum(value, themeModeSet, "dark" as ThemeMode),
 	},
 	lightPrimarySeed: {
-		storageKey: "novele:pref:lightPrimarySeed",
+		storageBlob: "theme",
+		storageField: "lightPrimarySeed",
 		seedValue: { l: 0.55, c: 0.25, h: 230 },
 		parse: (value) => parseOklch(value, { l: 0.55, c: 0.25, h: 230 }),
 		debounceMs: 150,
 	},
 	lightSurfaceSeed: {
-		storageKey: "novele:pref:lightSurfaceSeed",
+		storageBlob: "theme",
+		storageField: "lightSurfaceSeed",
 		seedValue: { l: 0.95, c: 0.02, h: 230 },
 		parse: (value) => parseOklch(value, { l: 0.95, c: 0.02, h: 230 }),
 		debounceMs: 150,
 	},
 	darkPrimarySeed: {
-		storageKey: "novele:pref:darkPrimarySeed",
+		storageBlob: "theme",
+		storageField: "darkPrimarySeed",
 		seedValue: { l: 0.65, c: 0.286, h: 203 },
 		parse: (value) => parseOklch(value, { l: 0.65, c: 0.286, h: 203 }),
 		debounceMs: 150,
 	},
 	darkSurfaceSeed: {
-		storageKey: "novele:pref:darkSurfaceSeed",
+		storageBlob: "theme",
+		storageField: "darkSurfaceSeed",
 		seedValue: { l: 0.65, c: 0.337, h: 66 },
 		parse: (value) => parseOklch(value, { l: 0.65, c: 0.337, h: 66 }),
 		debounceMs: 150,
 	},
 	advancedInterfaceDensity: {
-		storageKey: "novele:pref:advancedInterfaceDensity",
+		storageBlob: "ui",
+		storageField: "advancedInterfaceDensity",
 		seedValue: false,
 		parse: (value) => parseBoolean(value, false),
 	},
 	interfaceDensity: {
-		storageKey: "novele:pref:interfaceDensity",
+		storageBlob: "ui",
+		storageField: "interfaceDensity",
 		seedValue: comfortableDensity as InterfaceDensity,
 		parse: (value) =>
 			parseEnum(
@@ -237,25 +265,29 @@ const preferenceSchema = {
 			),
 	},
 	interfaceScale: {
-		storageKey: "novele:pref:interfaceScale",
+		storageBlob: "ui",
+		storageField: "interfaceScale",
 		seedValue: 1,
 		parse: (value) => parseNumber(value, 1, 0.75, 1.3),
 		debounceMs: 150,
 	},
 	panelPosition: {
-		storageKey: "novele:pref:panelPosition",
+		storageBlob: "ui",
+		storageField: "panelPosition",
 		seedValue: "right" as PanelPosition,
 		parse: (value) =>
 			parseEnum(value, panelPositionSet, "right" as PanelPosition),
 	},
 	drawerHeaderPosition: {
-		storageKey: "novele:pref:drawerHeaderPosition",
+		storageBlob: "ui",
+		storageField: "drawerHeaderPosition",
 		seedValue: "top" as DrawerHeaderPosition,
 		parse: (value) =>
 			parseEnum(value, drawerHeaderPositionSet, "top" as DrawerHeaderPosition),
 	},
 	commentAuthor: {
-		storageKey: "novele:pref:commentAuthor",
+		storageBlob: "advanced",
+		storageField: "commentAuthor",
 		seedValue: "匿名",
 		parse: (value) => parseString(value, "匿名"),
 		debounceMs: 150,
@@ -295,11 +327,37 @@ function getDefaultUiPreferences(): UiPreferences {
 
 export const defaultUiPreferences = getDefaultUiPreferences();
 
+function createPreferenceBlobSet(): PreferenceBlobSet {
+	return {
+		reader: {} as Record<string, unknown>,
+		theme: {} as Record<string, unknown>,
+		ui: {} as Record<string, unknown>,
+		advanced: {} as Record<string, unknown>,
+	};
+}
+
+function getPreferenceBlob(
+	blobs: PreferenceBlobSet,
+	blobName: PreferenceBlobName,
+) {
+	switch (blobName) {
+		case "reader":
+			return blobs.reader;
+		case "theme":
+			return blobs.theme;
+		case "ui":
+			return blobs.ui;
+		case "advanced":
+			return blobs.advanced;
+	}
+}
+
 function getStorageDefaults() {
-	const defaults: Record<string, unknown> = {};
+	const defaults = createPreferenceBlobSet();
 	for (const key of preferenceKeys) {
 		const spec = getPreferenceSpec(key);
-		defaults[spec.storageKey] = spec.seedValue;
+		getPreferenceBlob(defaults, spec.storageBlob)[spec.storageField] =
+			clonePreferenceValue(spec.seedValue);
 	}
 	return defaults;
 }
@@ -310,13 +368,17 @@ function assignSanitizedPreference<K extends keyof UiPreferences>(
 	values: Record<string, unknown>,
 ) {
 	const spec = getPreferenceSpec(key);
-	preferences[key] = spec.parse(values[spec.storageKey]);
+	preferences[key] = spec.parse(values[spec.storageField]);
 }
 
-function sanitizePreferences(values: Record<string, unknown>): UiPreferences {
+function sanitizePreferences(values: PreferenceBlobSet): UiPreferences {
 	const preferences = {} as UiPreferences;
 	for (const key of preferenceKeys) {
-		assignSanitizedPreference(preferences, key, values);
+		assignSanitizedPreference(
+			preferences,
+			key,
+			getPreferenceBlob(values, getPreferenceSpec(key).storageBlob),
+		);
 	}
 	if (preferences.typeface === "custom") {
 		preferences.typeface =
@@ -325,8 +387,17 @@ function sanitizePreferences(values: Record<string, unknown>): UiPreferences {
 	return preferences;
 }
 
+function loadPreferenceBlobs() {
+	const defaults = getStorageDefaults();
+	const reader = storage.preferences.loadBlob("reader", defaults.reader);
+	const theme = storage.preferences.loadBlob("theme", defaults.theme);
+	const ui = storage.preferences.loadBlob("ui", defaults.ui);
+	const advanced = storage.preferences.loadBlob("advanced", defaults.advanced);
+	return { reader, theme, ui, advanced };
+}
+
 export function loadUiPreferences() {
-	return sanitizePreferences(GM_getValues(getStorageDefaults()));
+	return sanitizePreferences(loadPreferenceBlobs());
 }
 
 function bindPreference<K extends keyof UiPreferences>(
@@ -335,21 +406,29 @@ function bindPreference<K extends keyof UiPreferences>(
 ) {
 	let lastStoredSerialized = JSON.stringify(state.val);
 	let pendingValue: UiPreferences[K] | undefined;
-	let saveTimeout: ReturnType<typeof window.setTimeout> | undefined;
+	let saveTimeout: number | undefined;
+	const readBlob = () =>
+		getPreferenceBlob(loadPreferenceBlobs(), spec.storageBlob);
 
 	const flushPendingWrite = () => {
 		if (pendingValue === undefined) return;
 		const nextValue = pendingValue;
 		pendingValue = undefined;
-		GM_setValue(spec.storageKey, nextValue);
+		const blob = readBlob();
+		blob[spec.storageField] = nextValue;
+		storage.preferences.setBlob(spec.storageBlob, blob);
 		lastStoredSerialized = JSON.stringify(nextValue);
 	};
 
-	const listenerId = GM_addValueChangeListener(
-		spec.storageKey,
+	const unsubscribe = storage.preferences.subscribe(
+		spec.storageBlob,
 		(_name, _oldValue, newValue, remote) => {
 			if (!remote) return;
-			const nextValue = spec.parse(newValue);
+			const blob =
+				newValue && typeof newValue === "object"
+					? (newValue as Record<string, unknown>)
+					: {};
+			const nextValue = spec.parse(blob[spec.storageField]);
 			const serialized = JSON.stringify(nextValue);
 			if (serialized === lastStoredSerialized) return;
 			if (saveTimeout) {
@@ -378,7 +457,9 @@ function bindPreference<K extends keyof UiPreferences>(
 			}, spec.debounceMs);
 			return;
 		}
-		GM_setValue(spec.storageKey, value);
+		const blob = readBlob();
+		blob[spec.storageField] = value;
+		storage.preferences.setBlob(spec.storageBlob, blob);
 		lastStoredSerialized = serialized;
 	});
 
@@ -388,7 +469,7 @@ function bindPreference<K extends keyof UiPreferences>(
 			saveTimeout = undefined;
 		}
 		flushPendingWrite();
-		GM_removeValueChangeListener(listenerId);
+		unsubscribe();
 	};
 	window.addEventListener("beforeunload", cleanup, { once: true });
 }

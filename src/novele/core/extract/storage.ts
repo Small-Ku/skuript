@@ -1,3 +1,6 @@
+import { storage } from "../storage";
+import type { PersistedPageRecord } from "../storage/types";
+
 export type ChapterCandidate = {
 	index: number;
 	series: "main" | "extra";
@@ -54,69 +57,64 @@ export type ResolvedChapter = {
 
 export type StoredPage = {
 	url: string;
-	lastModified: Date;
+	lastChanged: Date;
 	title: Set<string>;
 	slices?: PageSlice[];
 	resolvedChapter?: ResolvedChapter;
 	additionalUrls?: string[];
 	raw?: string;
+	persistedRaw?: string;
 	dom?: Document;
 };
 
 /** @mangle-preserve Persisted as JSON in sessionStorage. */
-type SessionPage = {
-	version: number;
-	lastModified: string;
-	title: string[];
-	additionalUrls?: string[];
-	raw?: string;
-};
-
-const pages = new Map<string, StoredPage>();
-const STORAGE_VERSION = 4;
-
-function clearStoredPageCache() {
-	for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
-		const key = sessionStorage.key(index);
-		if (key?.startsWith("http")) sessionStorage.removeItem(key);
-	}
-}
+type SessionPage = PersistedPageRecord;
+const STORAGE_VERSION = 1;
 
 function toSessionPage(page: StoredPage): SessionPage {
+	const timestamp = Date.now();
+	const raw = page.raw ?? page.persistedRaw;
 	return {
-		version: STORAGE_VERSION,
-		lastModified: page.lastModified.toISOString(),
+		schemaVersion: STORAGE_VERSION,
+		lastChanged: page.lastChanged.toISOString(),
 		title: [...page.title],
 		additionalUrls: page.additionalUrls,
-		raw: page.slices?.length ? undefined : page.raw,
+		raw,
+		createdAt: timestamp,
+		updatedAt: timestamp,
+		lastAccess: timestamp,
+		approxSize: raw?.length ?? 0,
 	};
 }
 
 function fromSessionPage(url: string, page: SessionPage): StoredPage {
 	return {
 		url,
-		lastModified: new Date(page.lastModified),
+		lastChanged: new Date(page.lastChanged),
 		title: new Set(page.title),
 		additionalUrls: page.additionalUrls,
-		raw: page.raw,
+		persistedRaw: page.raw,
 	};
 }
 
-function loadPage(url: string): StoredPage | undefined {
-	const stored = sessionStorage.getItem(url);
-	if (!stored) return;
-	const sessionPage = JSON.parse(stored) as Partial<SessionPage>;
-	if (sessionPage.version !== STORAGE_VERSION) {
-		sessionStorage.removeItem(url);
+export async function hydratePage(
+	url: string,
+): Promise<StoredPage | undefined> {
+	const sessionPage = (await storage.pageCache.get(url)) as
+		| Partial<SessionPage>
+		| undefined;
+	if (!sessionPage) return;
+	if (sessionPage.schemaVersion !== STORAGE_VERSION) {
+		void storage.pageCache.delete(url);
 		return;
 	}
 	const page = fromSessionPage(url, sessionPage as SessionPage);
-	pages.set(url, page);
+	storage.runtimePages.set(url, page);
 	return page;
 }
 
 export function getPage(url: string): StoredPage | undefined {
-	return pages.get(url) ?? loadPage(url);
+	return storage.runtimePages.get(url) as StoredPage | undefined;
 }
 
 export function hasPage(url: string): boolean {
@@ -124,20 +122,17 @@ export function hasPage(url: string): boolean {
 }
 
 export function setPage(page: StoredPage): StoredPage {
-	pages.set(page.url, page);
-	try {
-		sessionStorage.setItem(page.url, JSON.stringify(toSessionPage(page)));
-	} catch (error) {
-		if (error instanceof DOMException && error.name === "QuotaExceededError") {
-			clearStoredPageCache();
-		} else {
-			throw error;
-		}
-	}
+	storage.runtimePages.set(page.url, page);
+	return page;
+}
+
+export function commitPage(page: StoredPage): StoredPage {
+	storage.runtimePages.set(page.url, page);
+	void storage.pageCache.put(page.url, toSessionPage(page));
 	return page;
 }
 
 export function deletePage(url: string): void {
-	pages.delete(url);
-	sessionStorage.removeItem(url);
+	storage.runtimePages.delete(url);
+	void storage.pageCache.delete(url);
 }

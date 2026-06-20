@@ -1,5 +1,5 @@
 import { JobQueue } from "../../util/job-queue";
-import { resolvePageChapter } from "./extract/chapters";
+import { hydrateResolvedChapter, resolvePageChapter } from "./extract/chapters";
 import {
 	type CommentBundle,
 	getCachedCommentBundle,
@@ -13,6 +13,7 @@ import type { Link } from "./extract/links";
 import {
 	getAdditionalPageUrls,
 	getPage,
+	hydratePage,
 	parsePageDom,
 	parseStandalonePage,
 	peekPage,
@@ -83,9 +84,16 @@ async function fetchPageText(
 		return document.documentElement.outerHTML;
 	if (!bypassCache) {
 		const storedPage = peekPage(url);
-		if (storedPage?.raw) {
+		const storedRaw = storedPage?.raw ?? storedPage?.persistedRaw;
+		if (storedRaw) {
 			console.debug(`Using cached raw page: ${url}`);
-			return storedPage.raw;
+			return storedRaw;
+		}
+		const hydratedPage = await hydratePage(url);
+		const hydratedRaw = hydratedPage?.raw ?? hydratedPage?.persistedRaw;
+		if (hydratedRaw) {
+			console.debug(`Using IndexedDB page: ${url}`);
+			return hydratedRaw;
 		}
 	}
 	for (;;) {
@@ -210,6 +218,7 @@ export async function queueChapterFetch(
 			.slice(index, Math.min(orderedLinks.length, index + CHAPTER_LOOKAHEAD))
 			.map((nextLink, offset) => ensureLinkParsed(nextLink, index + offset)),
 	);
+	await hydrateResolvedChapter(link.url, orderedUrls);
 	let chapter = resolvePageChapter(link.url, orderedUrls);
 	for (
 		let nextIndex = index + CHAPTER_LOOKAHEAD;
@@ -230,12 +239,16 @@ export async function queueCatalogFetch(
 	await Promise.allSettled(
 		orderedLinks.map((link, index) =>
 			ensureLinkParsed(link, index)
-				.then(() => {
+				.then(async () => {
 					for (
 						let resolveIndex = Math.max(0, index - CHAPTER_LOOKAHEAD);
 						resolveIndex <= index;
 						resolveIndex += 1
 					) {
+						await hydrateResolvedChapter(
+							orderedLinks[resolveIndex].url,
+							orderedUrls,
+						);
 						resolvePageChapter(orderedLinks[resolveIndex].url, orderedUrls);
 					}
 					onSettled?.(link, index);
