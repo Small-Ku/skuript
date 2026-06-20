@@ -727,7 +727,7 @@ export async function hydrateResolvedChapter(
 	if (!page?.slices?.length) return;
 	if (page.resolvedChapter?.textLines.length) return page.resolvedChapter;
 	const cached = await storage.chapterCache.get(url);
-	if (!cached || cached.schemaVersion !== 1) return;
+	if (cached?.schemaVersion !== 1) return;
 	const { parsedPageKey, loadedLastLinkIndex } = getParsedPageState(
 		url,
 		orderedUrls,

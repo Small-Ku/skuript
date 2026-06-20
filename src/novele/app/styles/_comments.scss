@@ -135,6 +135,28 @@
 		line-height: 1.4;
 	}
 
+	.commentChallengeStatus {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin-top: 0.75rem;
+	}
+
+	.commentChallengeHint {
+		flex: 1;
+		color: var(--color-text-main);
+		font-size: 0.75rem;
+		line-height: 1.4;
+	}
+
+	.commentChallengeFallbackButton {
+		padding-inline: 1rem;
+		border: 1px solid var(--color-border-glass);
+		border-radius: 999px;
+		background-color: rgb(var(--color-surface-hover-rgb, 40 40 40) / 0.7);
+	}
+
 	.commentFloatingInputArea {
 		position: sticky;
 		right: 0;
