@@ -22,6 +22,7 @@ const { div, h1, main, p } = van.tags;
 const [compactPreset, regularPreset, relaxedPreset] =
 	COMPACT_REGULAR_RELAXED_VALUES;
 const [narrowWidth, regularWidth, wideWidth] = READING_WIDTH_PRESET_VALUES;
+const hostFontSizePx = 16;
 
 const textSizePresetMap = {
 	[compactPreset]: 15,
@@ -41,6 +42,10 @@ const readingWidthPresetMap = {
 	[wideWidth]: 48,
 } as const;
 
+function pxToEm(value: number) {
+	return `${Number((value / hostFontSizePx).toFixed(4))}em`;
+}
+
 function readerStyle(ui: UiState) {
 	return () => {
 		const fontSize = ui.advancedTextSize.val
@@ -49,7 +54,10 @@ function readerStyle(ui: UiState) {
 		const lineHeight = ui.advancedLineSpacing.val
 			? ui.lineSpacingValue.val
 			: lineSpacingPresetMap[ui.lineSpacingPreset.val];
-		const style = [`font-size:${fontSize}px`, `line-height:${lineHeight}`];
+		const style = [
+			`--reader-font-size:${pxToEm(fontSize)}`,
+			`--reader-line-height:${lineHeight}`,
+		];
 		if (!isBuiltInTypeface(ui.typeface.val)) {
 			style.push(`font-family:${ui.typeface.val}`);
 		}
@@ -62,16 +70,7 @@ function textContentStyle(ui: UiState) {
 		const readingWidth = ui.advancedReadingWidth.val
 			? ui.readingWidthValue.val
 			: readingWidthPresetMap[ui.readingWidthPreset.val];
-		const paddingY = ui.advancedReadingWidth.val
-			? Math.max(1, (60 - ui.readingWidthValue.val) / 3)
-			: ui.readingWidthPreset.val === narrowWidth
-				? 8
-				: ui.readingWidthPreset.val === wideWidth
-					? 4
-					: 6;
-		return [`max-width:${readingWidth}em`, `padding:${paddingY}em 1.5em`].join(
-			";",
-		);
+		return `--reader-content-width:${readingWidth}em`;
 	};
 }
 

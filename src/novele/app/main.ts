@@ -4,7 +4,6 @@ import { bindUiPreferences, loadUiPreferences } from "../core/preferences";
 import { Reader } from "./reader";
 import { createUiState } from "./state";
 import nameMap from "./styles/style.module.scss";
-import { generateDensityVars } from "./theme/density";
 import { generateThemeVars } from "./theme/theme";
 
 const { button, div, span } = van.tags;
@@ -32,11 +31,9 @@ export const FabApp = () => {
 				isDark ? ui.darkSurfaceSeed.val : ui.lightSurfaceSeed.val,
 				isDark,
 			);
-			const densityVars = generateDensityVars(ui.interfaceScale.val);
 			return [
 				...Object.entries(vars).map(([key, value]) => `${key}:${value}`),
-				...Object.entries(densityVars).map(([key, value]) => `${key}:${value}`),
-				"font-size:16px",
+				`--ui-density-scale:${ui.interfaceScale.val}`,
 			].join(";");
 		},
 	});

@@ -1,4 +1,5 @@
 @use "../../../style/color" as c;
+@use "./density" as d;
 @use "./mixins" as m;
 
 @mixin tokens {
@@ -8,6 +9,7 @@
 
 	:host {
 		@include c.dark-color-vars();
+		font-size: 16px;
 	}
 
 	*,
@@ -28,7 +30,6 @@
 	}
 
 	.app {
-		--color-background-light: #f5f8f8;
 		--color-bg: #05070a;
 		--color-bg-radiance: rgb(0 229 255 / 0.07);
 		--color-bg-sheen: rgb(255 255 255 / 0.03);
@@ -54,47 +55,34 @@
 		--font-display: "Clash Display", "Segoe UI", sans-serif;
 		--font-reader: "Newsreader", Georgia, serif;
 		--font-literata: "Literata", Georgia, serif;
-		--ui-top-pad: 0.75em;
-		--ui-badge-pad: 0.75em 1.5em;
-		--ui-badge-txt: 0.875em;
-		--ui-bot-bot: 2em;
-		--ui-bot-right: calc(var(--ui-bot-bot) + var(--ui-fab-w) + var(--ui-bot-gap));
-		--ui-bot-gap: 1em;
-		--ui-nav-h: 3.5em;
+		--font-mono:
+			"IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+		--glass-blur: blur(24px);
+		--ui-density-scale: 1;
+		--ui-density-compact-progress: #{d.progress(
+				d.$compact-scale,
+				d.$comfortable-scale
+			)};
+		--ui-density-spacious-progress: #{d.progress(
+				d.$comfortable-scale,
+				d.$spacious-scale
+			)};
+		--ui-dock-offset: #{d.token("shared", "dock-offset")};
+		--ui-fab-size: #{d.token("shared", "fab-size")};
+		--ui-bot-gap: #{d.token("shared", "bottom-gap")};
+		--ui-bot-right: calc(var(--ui-dock-offset) + var(--ui-fab-size) + var(--ui-bot-gap));
 		--ui-nav-pad-block: 0;
-		--ui-nav-pad-inline: 1.5em;
-		--ui-nav-edge-pad-inline: 0.6em;
-		--ui-nav-gap: 0.7em;
 		--ui-arrow-pad-block: 0;
-		--ui-arrow-pad-inline: 1em;
-		--ui-arrow-edge-pad-inline: 0.45em;
-		--ui-arrow-gap: 0.45em;
-		--ui-fab-bot: 2em;
-		--ui-fab-right: 2em;
-		--ui-fab-w: 3.5em;
-		--ui-fab-h: 3.5em;
-		--ui-fab-center-x: calc(100% - var(--ui-fab-right) - (var(--ui-fab-w) / 2));
-		--ui-fab-center-y: calc(100% - var(--ui-fab-bot) - (var(--ui-fab-h) / 2));
-		--ui-draw-head-pad: 1em 1.5em;
-		--ui-draw-title: 1.25em;
-		--ui-set-body-pad: 1.5em 1.75em;
-		--ui-tab-mb: 2em;
-		--ui-tab-pad: 0.35em;
-		--ui-tab-btn-pad: 0.5em 0;
-		--ui-tab-btn-txt: 0.875em;
-		--ui-tab-gap: 1.5em;
-		--ui-lbl-mb: 1em;
-		--ui-lbl-txt: 0.8125em;
-		--ui-btn-row-pad: 0.375em 0.75em;
-		--ui-btn-row-txt: 0.875em;
-		--ui-slide-head-mb: 1em;
-		--ui-chap-nav-pad: 1em 1.5em;
-		--ui-chap-nav-gap: 0.5em;
-		--ui-chap-link-pad: 1em;
-		--ui-chap-link-txt: 1em;
-		--ui-comm-pad: 1.5em 1.75em;
-		--ui-comm-gap: 1.5em;
-		--ui-add-comm-pad: 1.5em 1.75em;
+		--ui-fab-center-x: calc(100% - var(--ui-dock-offset) - (var(--ui-fab-size) / 2));
+		--ui-fab-center-y: calc(100% - var(--ui-dock-offset) - (var(--ui-fab-size) / 2));
+		--reader-font-size: 1.1875em;
+		--reader-line-height: 1.625;
+		--reader-content-width: 42em;
+		--reader-content-pad-inline: 1.5em;
+		--reader-content-pad-block: max(
+			1em,
+			calc((60em - var(--reader-content-width)) / 3)
+		);
 		font-family: var(--font-ui);
 		color: var(--color-text-main);
 	}

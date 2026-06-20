@@ -47,15 +47,15 @@
 
 	.persistentFab {
 		position: fixed;
-		right: var(--ui-fab-right);
-		bottom: var(--ui-fab-bot);
+		right: var(--ui-dock-offset);
+		bottom: var(--ui-dock-offset);
 		z-index: 9999;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: 0.75em;
-		min-width: var(--ui-fab-w);
-		height: var(--ui-fab-h);
+		min-width: var(--ui-fab-size);
+		height: var(--ui-fab-size);
 		padding: 0 1em;
 		border-radius: 999px;
 		color: var(--color-text-main);
@@ -125,11 +125,11 @@
 	}
 
 	.uiDirectionLeft {
-		--ui-fab-center-x: calc(var(--ui-fab-right) + (var(--ui-fab-w) / 2));
+		--ui-fab-center-x: calc(var(--ui-dock-offset) + (var(--ui-fab-size) / 2));
 
 		.persistentFab {
 			right: auto;
-			left: var(--ui-fab-right);
+			left: var(--ui-dock-offset);
 		}
 	}
 }

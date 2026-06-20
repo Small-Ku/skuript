@@ -1,4 +1,5 @@
 @use "../../../style/easing-duation" as *;
+@use "./density" as d;
 
 @mixin controls {
 	.topBar {
@@ -9,7 +10,7 @@
 		z-index: 40;
 		display: flex;
 		justify-content: center;
-		padding: var(--ui-top-pad);
+		padding: d.token("controls", "top-pad");
 		pointer-events: none;
 		transform: translateY(-100px);
 		opacity: 0;
@@ -21,7 +22,7 @@
 	.bottomBar {
 		position: fixed;
 		right: var(--ui-bot-right);
-		bottom: var(--ui-bot-bot);
+		bottom: var(--ui-dock-offset);
 		z-index: 40;
 		display: flex;
 		align-items: center;
@@ -45,7 +46,7 @@
 	.desktopBottomSizer {
 		position: fixed;
 		right: var(--ui-bot-right);
-		bottom: var(--ui-bot-bot);
+		bottom: var(--ui-dock-offset);
 		z-index: -1;
 		display: flex;
 		align-items: center;
@@ -71,13 +72,13 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		padding: var(--ui-badge-pad);
+		padding: d.token("controls", "badge-pad");
 		border-radius: 999px;
 		box-shadow: var(--shadow-glow-primary);
 		pointer-events: auto;
 
 		span {
-			font-size: var(--ui-badge-txt);
+			font-size: d.token("controls", "badge-text");
 			font-weight: 500;
 			letter-spacing: 0.025em;
 		}
@@ -86,34 +87,34 @@
 	.glassNav {
 		display: flex;
 		align-items: center;
-		gap: var(--ui-nav-gap);
-		height: var(--ui-nav-h);
+		gap: d.token("controls", "nav-gap");
+		height: var(--ui-fab-size);
 		padding-block: var(--ui-nav-pad-block);
-		padding-inline: var(--ui-nav-pad-inline);
+		padding-inline: d.token("controls", "nav-inline-pad");
 		border-radius: 999px;
 		box-shadow: var(--shadow-glow-primary);
 	}
 
 	.glassArrows {
 		padding-block: var(--ui-arrow-pad-block);
-		padding-inline: var(--ui-arrow-pad-inline);
-		gap: var(--ui-arrow-gap);
+		padding-inline: d.token("controls", "arrow-inline-pad");
+		gap: d.token("controls", "arrow-gap");
 	}
 
 	.compactStartPad {
-		padding-inline-start: var(--ui-nav-edge-pad-inline);
+		padding-inline-start: d.token("controls", "nav-edge-inline-pad");
 	}
 
 	.compactEndPad {
-		padding-inline-end: var(--ui-nav-edge-pad-inline);
+		padding-inline-end: d.token("controls", "nav-edge-inline-pad");
 	}
 
 	.glassArrows.compactStartPad {
-		padding-inline-start: var(--ui-arrow-edge-pad-inline);
+		padding-inline-start: d.token("controls", "arrow-edge-inline-pad");
 	}
 
 	.glassArrows.compactEndPad {
-		padding-inline-end: var(--ui-arrow-edge-pad-inline);
+		padding-inline-end: d.token("controls", "arrow-edge-inline-pad");
 	}
 
 	.navButton {

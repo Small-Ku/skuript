@@ -1,4 +1,5 @@
 @use "../../../style/easing-duation" as *;
+@use "./density" as d;
 @use "./mixins" as m;
 
 @mixin drawers {
@@ -104,12 +105,12 @@
 		align-items: center;
 		gap: 0.75em;
 		flex-shrink: 0;
-		padding: var(--ui-draw-head-pad);
+		padding: d.token("drawers", "header-pad");
 		border-bottom: 1px solid var(--color-border-glass);
 
 		h2 {
 			font-family: var(--font-display);
-			font-size: var(--ui-draw-title);
+			font-size: d.token("drawers", "title-size");
 			font-weight: 600;
 			color: var(--color-primary);
 			margin-right: auto;
@@ -142,17 +143,17 @@
 	.chapterNav {
 		display: flex;
 		flex-direction: column;
-		gap: var(--ui-chap-nav-gap);
-		padding: var(--ui-chap-nav-pad);
+		gap: d.token("drawers", "chapter-nav-gap");
+		padding: d.token("drawers", "chapter-nav-pad");
 		overflow-y: auto;
 	}
 
 	.chapterLink {
 		display: block;
-		padding: var(--ui-chap-link-pad);
+		padding: d.token("drawers", "chapter-link-pad");
 		border: 1px solid transparent;
 		border-radius: 0.75em;
-		font-size: var(--ui-chap-link-txt);
+		font-size: d.token("drawers", "chapter-link-text");
 		text-align: left;
 		color: var(--color-muted);
 		cursor: pointer;

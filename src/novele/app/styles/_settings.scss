@@ -1,4 +1,5 @@
 @use "../../../style/easing-duation" as *;
+@use "./density" as d;
 
 @mixin slider-thumb($include-margin-top: false) {
 	width: 16px;
@@ -32,20 +33,20 @@
 	.settingsBody {
 		display: flex;
 		flex-direction: column;
-		padding: var(--ui-set-body-pad);
-		padding-top: 1.5rem;
+		padding: d.token("settings", "body-pad");
+		padding-top: calc(1em + #{d.token("settings", "sticky-offset")});
 	}
 
 	.tabSwitcher {
 		position: sticky;
-		top: 1.5rem;
+		top: d.token("settings", "sticky-offset");
 		display: flex;
 		gap: 0.5em;
 		z-index: 20;
 		flex-shrink: 0;
-		margin: var(--ui-set-body-pad);
+		margin: d.token("settings", "body-pad");
 		margin-bottom: 0;
-		padding: var(--ui-tab-pad);
+		padding: d.token("settings", "tab-pad");
 		background-color: var(--color-fab-surface);
 		border: 1px solid var(--color-border-glass);
 		border-radius: 999px;
@@ -56,9 +57,9 @@
 
 		button {
 			flex: 1;
-			padding: var(--ui-tab-btn-pad);
+			padding: d.token("settings", "tab-btn-pad");
 			border-radius: 8px;
-			font-size: var(--ui-tab-btn-txt);
+			font-size: d.token("settings", "tab-btn-text");
 			font-family: var(--font-ui);
 			font-weight: 500;
 			color: var(--color-muted);
@@ -89,7 +90,7 @@
 	.tabContent {
 		display: flex;
 		flex-direction: column;
-		gap: var(--ui-tab-gap);
+		gap: d.token("settings", "tab-gap");
 	}
 
 	.settingsGroup {
@@ -105,8 +106,8 @@
 
 	.label {
 		display: block;
-		margin-bottom: var(--ui-lbl-mb);
-		font-size: var(--ui-lbl-txt);
+		margin-bottom: d.token("settings", "label-margin-bottom");
+		font-size: d.token("settings", "label-text");
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		color: var(--color-muted);
@@ -123,10 +124,10 @@
 
 		button {
 			flex: 1;
-			padding: var(--ui-btn-row-pad);
+			padding: d.token("settings", "button-row-pad");
 			border: 1px solid var(--color-border-glass);
 			border-radius: 8px;
-			font-size: var(--ui-btn-row-txt);
+			font-size: d.token("settings", "button-row-text");
 			cursor: pointer;
 			transition:
 				color $duration-short4 $easing-standard,
@@ -173,7 +174,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-bottom: var(--ui-slide-head-mb);
+		margin-bottom: d.token("settings", "slider-header-margin-bottom");
 	}
 
 	.sliderActions {
@@ -350,13 +351,13 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.5em;
-		padding: var(--ui-btn-row-pad);
+		padding: d.token("settings", "button-row-pad");
 		border: 1px solid var(--color-border-glass);
 		border-radius: 999px;
 		background-color: transparent;
 		color: var(--color-text-main);
 		font-family: var(--font-ui);
-		font-size: var(--ui-btn-row-txt);
+		font-size: d.token("settings", "button-row-text");
 		cursor: pointer;
 		transition:
 			color $duration-short4 $easing-standard,
@@ -381,7 +382,7 @@
 	.typeableInput {
 		flex: 1;
 		width: 100%;
-		padding: var(--ui-btn-row-pad);
+		padding: d.token("settings", "button-row-pad");
 		border: 0;
 		background: transparent;
 		color: inherit;
@@ -438,7 +439,7 @@
 		text-align: left;
 		color: var(--color-muted);
 		font-family: var(--font-ui);
-		font-size: var(--ui-btn-row-txt);
+		font-size: d.token("settings", "button-row-text");
 		cursor: pointer;
 		transition:
 			color $duration-short4 $easing-standard,

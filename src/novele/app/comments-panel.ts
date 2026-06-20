@@ -99,7 +99,7 @@ export function CommentsPanel(
 	const commentChallengeFrame = iframe({
 		class: () =>
 			[
-				nameMap.commentChallengeFrame,
+				`${nameMap.commentChallengeFrame} ${nameMap.pillPanel}`,
 				data.currentComments.val.needsCloudflareVerification
 					? ""
 					: nameMap.commentChallengeFrameHidden,
@@ -111,7 +111,6 @@ export function CommentsPanel(
 	}) as HTMLIFrameElement;
 	const commentsRoot = div({
 		class: nameMap.commentsList,
-		onscroll: onInteraction,
 	});
 	const commentChallengeReloadCount = van.state(0);
 	const commentChallengeFallbackUrl = van.state<string | null>(null);
@@ -525,153 +524,159 @@ export function CommentsPanel(
 			onclick: (event) => event.stopPropagation(),
 		},
 		drawerHeader("Comments", close, commentHeaderTail(data)),
-		div({ class: nameMap.commentsContentWrapper }, commentsRoot),
-		form(
+		div(
 			{
-				class: nameMap.commentFloatingInputArea,
-				method: "POST",
-				action: ZHENHUN_COMMENT_POST_URL,
-				target: commentFrameName,
-				onsubmit: onCommentSubmit,
+				class: nameMap.commentsContentWrapper,
+				onscroll: onInteraction,
 			},
-			() => {
-				const replyTarget =
-					data.currentComments.val.items.find(
-						(comment) => comment.id === ui.replyingToCommentId.val,
-					) ?? null;
-				if (!replyTarget) return "";
-				const snippet = replyTarget.text.join(" ").trim();
-				const shortSnippet =
-					snippet.length > 56
-						? `${snippet.slice(0, 56).trimEnd()}...`
-						: snippet;
-				return div(
+			commentsRoot,
+			form(
+				{
+					class: nameMap.commentFloatingInputArea,
+					method: "POST",
+					action: ZHENHUN_COMMENT_POST_URL,
+					target: commentFrameName,
+					onsubmit: onCommentSubmit,
+				},
+				() => {
+					const replyTarget =
+						data.currentComments.val.items.find(
+							(comment) => comment.id === ui.replyingToCommentId.val,
+						) ?? null;
+					if (!replyTarget) return "";
+					const snippet = replyTarget.text.join(" ").trim();
+					const shortSnippet =
+						snippet.length > 56
+							? `${snippet.slice(0, 56).trimEnd()}...`
+							: snippet;
+					return div(
+						{ class: nameMap.inputRow },
+						div(
+							{
+								class: `${nameMap.replyingBanner} ${nameMap.pillPanel}`,
+								onclick: scrollToReplyTarget,
+							},
+							span(
+								{ class: nameMap.replyingText },
+								`Replying to ${replyTarget.author}`,
+								shortSnippet
+									? span({ class: nameMap.replySnippet }, `: "${shortSnippet}"`)
+									: "",
+							),
+						),
+						button(
+							{
+								class: `${nameMap.cancelReplyButton} ${nameMap.pillPanel}`,
+								type: "button",
+								onclick: cancelReply,
+							},
+							"Cancel",
+						),
+					);
+				},
+				() =>
+					data.currentComments.val.error
+						? div(
+								{ class: `${nameMap.commentError} ${nameMap.pillPanel}` },
+								div(data.currentComments.val.error),
+								() =>
+									data.currentComments.val.needsCloudflareVerification
+										? div(
+												{ class: nameMap.commentChallengeStatus },
+												span({ class: nameMap.commentChallengeHint }, () =>
+													commentChallengeReloadCount.val > 0
+														? `Iframe challenge reloaded ${commentChallengeReloadCount.val} time(s). Novele will try a new tab after ${challengeReloadFallbackThreshold} reloads.`
+														: `Waiting for Cloudflare verification in the iframe. Novele will try a new tab after ${challengeReloadFallbackThreshold} reloads.`,
+												),
+												button(
+													{
+														class: `${nameMap.postActionButton} ${nameMap.commentChallengeFallbackButton}`,
+														type: "button",
+														disabled: () => !commentChallengeFallbackUrl.val,
+														onclick: openCommentChallengeFallback,
+													},
+													() =>
+														commentChallengeReloadCount.val >=
+														challengeReloadFallbackThreshold
+															? "VERIFY IN TAB"
+															: "OPEN VERIFY TAB",
+												),
+											)
+										: "",
+							)
+						: "",
+				() => commentChallengeFrame,
+				input({
+					type: "hidden",
+					name: "submit",
+					value: "",
+				}),
+				input({
+					type: "hidden",
+					name: "comment_post_ID",
+					value: () => data.currentComments.val.postId ?? "",
+				}),
+				hiddenCommentParentInput,
+				div(
 					{ class: nameMap.inputRow },
 					div(
-						{
-							class: `${nameMap.replyingBanner} ${nameMap.pillPanel}`,
-							onclick: scrollToReplyTarget,
-						},
-						span(
-							{ class: nameMap.replyingText },
-							`Replying to ${replyTarget.author}`,
-							shortSnippet
-								? span({ class: nameMap.replySnippet }, `: "${shortSnippet}"`)
-								: "",
-						),
+						{ class: `${nameMap.commentMainInputs} ${nameMap.pillPanel}` },
+						commentInputElement,
+					),
+				),
+				div(
+					{ class: nameMap.inputRow },
+					div(
+						{ class: `${nameMap.extraInputWrapper} ${nameMap.pillPanel}` },
+						authorInputElement,
 					),
 					button(
 						{
-							class: `${nameMap.cancelReplyButton} ${nameMap.pillPanel}`,
-							type: "button",
-							onclick: cancelReply,
-						},
-						"Cancel",
-					),
-				);
-			},
-			() =>
-				data.currentComments.val.error
-					? div(
-							{ class: nameMap.commentError },
-							div(data.currentComments.val.error),
-							() =>
-								data.currentComments.val.needsCloudflareVerification
-									? div(
-											{ class: nameMap.commentChallengeStatus },
-											span({ class: nameMap.commentChallengeHint }, () =>
-												commentChallengeReloadCount.val > 0
-													? `Iframe challenge reloaded ${commentChallengeReloadCount.val} time(s). Novele will try a new tab after ${challengeReloadFallbackThreshold} reloads.`
-													: `Waiting for Cloudflare verification in the iframe. Novele will try a new tab after ${challengeReloadFallbackThreshold} reloads.`,
-											),
-											button(
-												{
-													class: `${nameMap.postActionButton} ${nameMap.commentChallengeFallbackButton}`,
-													type: "button",
-													disabled: () => !commentChallengeFallbackUrl.val,
-													onclick: openCommentChallengeFallback,
-												},
-												() =>
-													commentChallengeReloadCount.val >=
-													challengeReloadFallbackThreshold
-														? "VERIFY IN TAB"
-														: "OPEN VERIFY TAB",
-											),
-										)
-									: "",
-						)
-					: "",
-			() => commentChallengeFrame,
-			input({
-				type: "hidden",
-				name: "submit",
-				value: "",
-			}),
-			input({
-				type: "hidden",
-				name: "comment_post_ID",
-				value: () => data.currentComments.val.postId ?? "",
-			}),
-			hiddenCommentParentInput,
-			div(
-				{ class: nameMap.inputRow },
-				div(
-					{ class: `${nameMap.extraInputWrapper} ${nameMap.pillPanel}` },
-					authorInputElement,
-				),
-				button(
-					{
-						class: `${nameMap.postActionButton} ${nameMap.pillPanel}`,
-						disabled: () => {
-							const comments = data.currentComments.val;
-							if (
-								comments.needsCloudflareVerification &&
-								commentChallengeReloadCount.val >=
-									challengeReloadFallbackThreshold
-							) {
-								return !commentChallengeFallbackUrl.val;
-							}
-							return (
-								comments.isLoading ||
-								comments.posting ||
-								comments.waitingForCloudflareVerification ||
-								!comments.postId ||
-								!ui.commentDraft.val.trim()
-							);
-						},
-						type: () =>
-							data.currentComments.val.needsCloudflareVerification &&
-							commentChallengeReloadCount.val >=
-								challengeReloadFallbackThreshold
-								? "button"
-								: "submit",
-						onclick: (event: Event) => {
-							if (
+							class: `${nameMap.postActionButton} ${nameMap.pillPanel}`,
+							disabled: () => {
+								const comments = data.currentComments.val;
+								if (
+									comments.needsCloudflareVerification &&
+									commentChallengeReloadCount.val >=
+										challengeReloadFallbackThreshold
+								) {
+									return !commentChallengeFallbackUrl.val;
+								}
+								return (
+									comments.isLoading ||
+									comments.posting ||
+									comments.waitingForCloudflareVerification ||
+									!comments.postId ||
+									!ui.commentDraft.val.trim()
+								);
+							},
+							type: () =>
 								data.currentComments.val.needsCloudflareVerification &&
 								commentChallengeReloadCount.val >=
 									challengeReloadFallbackThreshold
-							) {
-								event.preventDefault();
-								openCommentChallengeFallback();
-							}
+									? "button"
+									: "submit",
+							onclick: (event: Event) => {
+								if (
+									data.currentComments.val.needsCloudflareVerification &&
+									commentChallengeReloadCount.val >=
+										challengeReloadFallbackThreshold
+								) {
+									event.preventDefault();
+									openCommentChallengeFallback();
+								}
+							},
 						},
-					},
-					() =>
-						data.currentComments.val.needsCloudflareVerification
-							? commentChallengeReloadCount.val >=
-								challengeReloadFallbackThreshold
-								? "VERIFY TAB"
-								: "VERIFY"
-							: data.currentComments.val.posting
-								? "POSTING"
-								: "POST",
-				),
-			),
-			div(
-				{ class: nameMap.inputRow },
-				div(
-					{ class: `${nameMap.commentMainInputs} ${nameMap.pillPanel}` },
-					commentInputElement,
+						() =>
+							data.currentComments.val.needsCloudflareVerification
+								? commentChallengeReloadCount.val >=
+									challengeReloadFallbackThreshold
+									? "VERIFY TAB"
+									: "VERIFY"
+								: data.currentComments.val.posting
+									? "POSTING"
+									: "POST",
+					),
 				),
 			),
 		),

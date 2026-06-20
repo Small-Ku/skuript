@@ -1,0 +1,98 @@
+@use "sass:list";
+@use "sass:map";
+@use "sass:meta";
+
+$compact-scale: 0.85;
+$comfortable-scale: 1;
+$spacious-scale: 1.15;
+
+$density-tokens: (
+	"shared": (
+		"dock-offset": (0.75, 2, 3),
+		"fab-size": (2.75, 3.5, 4),
+		"bottom-gap": (0.5, 1, 1.5),
+	),
+	"controls": (
+		"top-pad": (0.5, 0.75, 2),
+		"badge-pad": ((0.5, 1), (0.75, 1.5), (1, 2)),
+		"badge-text": (0.75, 0.875, 1),
+		"nav-inline-pad": (1, 1.5, 2),
+		"nav-edge-inline-pad": (0.5, 0.6, 0.9),
+		"nav-gap": (0.875, 0.7, 1.6),
+		"arrow-inline-pad": (0.75, 1, 1.25),
+		"arrow-edge-inline-pad": (0.4, 0.45, 0.6),
+		"arrow-gap": (0.4, 0.45, 0.8),
+	),
+	"drawers": (
+		"header-pad": ((0.5, 1), (1, 1.5), (1.5, 2)),
+		"title-size": (1.125, 1.25, 1.5),
+		"chapter-nav-pad": ((0.75, 1.25), (1, 1.5), (2, 2)),
+		"chapter-nav-gap": (0.25, 0.5, 1),
+		"chapter-link-pad": ((0.5, 0.75), (1, 1), (1.5, 1.5)),
+		"chapter-link-text": (0.875, 1, 1.125),
+	),
+	"settings": (
+		"body-pad": ((0.75, 1.25), (1.5, 1.75), (2, 2)),
+		"sticky-offset": (1, 1.5, 2),
+		"tab-pad": (0.2, 0.35, 0.5),
+		"tab-btn-pad": ((0.35, 0), (0.5, 0), (0.75, 0)),
+		"tab-btn-text": (0.75, 0.875, 1),
+		"tab-gap": (1, 1.5, 2),
+		"label-margin-bottom": (0.5, 1, 1.25),
+		"label-text": (0.8125, 0.8125, 0.8125),
+		"button-row-pad": ((0.25, 0.5), (0.375, 0.75), (0.5, 1)),
+		"button-row-text": (0.8, 0.875, 1),
+		"slider-header-margin-bottom": (0.5, 1, 1.25),
+	),
+	"comments": (
+		"panel-pad": ((0.75, 1.25), (1.5, 1.75), (2, 2)),
+		"panel-gap": (0.75, 1.5, 2),
+		"item-gap": (0.35, 0.5, 0.75),
+		"row-gap": (0.35, 0.5, 0.75),
+		"input-pad": ((0.5, 0.75), (0.75, 1), (1, 1.25)),
+		"button-pad": ((0.35, 0.875), (0.5, 1.25), (0.75, 1.5)),
+		"input-font-size": (0.75, 0.875, 1),
+		"radius-small": (0.375, 0.5, 0.625),
+		"radius-large": (1, 1.25, 1.5),
+	),
+);
+
+@function progress($from, $to) {
+	@return clamp(0, calc((var(--ui-density-scale) - #{$from}) / #{($to - $from)}), 1);
+}
+
+@function scalar($compact, $comfortable, $spacious) {
+	@return calc(
+		#{$compact}em * (1 - var(--ui-density-compact-progress)) +
+			#{$comfortable}em *
+			(var(--ui-density-compact-progress) - var(--ui-density-spacious-progress)) +
+			#{$spacious}em * var(--ui-density-spacious-progress)
+	);
+}
+
+@function value($compact, $comfortable, $spacious) {
+	@if meta.type-of($compact) == "list" {
+		@return scalar(
+				list.nth($compact, 1),
+				list.nth($comfortable, 1),
+				list.nth($spacious, 1)
+			)
+			scalar(
+				list.nth($compact, 2),
+				list.nth($comfortable, 2),
+				list.nth($spacious, 2)
+			);
+	}
+
+	@return scalar($compact, $comfortable, $spacious);
+}
+
+@function token($group, $name) {
+	$group-tokens: map.get($density-tokens, $group);
+	$values: map.get($group-tokens, $name);
+	$compact: list.nth($values, 1);
+	$comfortable: list.nth($values, 2);
+	$spacious: list.nth($values, 3);
+
+	@return value($compact, $comfortable, $spacious);
+}
