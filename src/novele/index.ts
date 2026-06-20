@@ -7,7 +7,7 @@ const { div, style } = van.tags;
 
 if (window.top !== window.self) {
 	installCommentFrameBridge();
-	console.debug("[novele] skipped iframe bootstrap", {
+	console.debug("[novele] installed iframe comment bridge", {
 		href: window.location.href,
 	});
 } else {

@@ -208,9 +208,32 @@ export function isCloudflareChallengeDocument(doc: Document): boolean {
 		doc.title === "Just a moment..." ||
 		Boolean(
 			doc.querySelector(
-				"#challenge-form, .cf-browser-verification, .main-content .cf-error-title",
+				"#challenge-form, .cf-browser-verification, .main-content .cf-error-title, .cf-challenge-running, .cf-turnstile-wrapper, #cf-wrapper",
 			),
 		)
+	);
+}
+
+function isCloudflareChallengeUrl(url: string): boolean {
+	try {
+		const parsed = new URL(url);
+		if (parsed.pathname.startsWith("/cdn-cgi/challenge-platform/")) return true;
+		return Array.from(parsed.searchParams.keys()).some((key) =>
+			key.startsWith("__cf_"),
+		);
+	} catch {
+		return false;
+	}
+}
+
+function isLikelyCloudflareChallengeResponse(
+	finalUrl: string,
+	responseStatus?: number,
+): boolean {
+	return (
+		responseStatus === 403 &&
+		(isCloudflareChallengeUrl(finalUrl) ||
+			finalUrl === ZHENHUN_COMMENT_POST_URL)
 	);
 }
 
@@ -250,7 +273,10 @@ export function resolveCommentPostResult(
 			if (responseStatus === 429) {
 				throw new Error(COMMENT_RATE_LIMIT_MESSAGE);
 			}
-			if (isCloudflareChallengeDocument(doc)) {
+			if (
+				isCloudflareChallengeDocument(doc) ||
+				isLikelyCloudflareChallengeResponse(finalUrl, responseStatus)
+			) {
 				throw new Error(CLOUDFLARE_CHALLENGE_MESSAGE);
 			}
 			if (finalUrl === ZHENHUN_COMMENT_POST_URL) {

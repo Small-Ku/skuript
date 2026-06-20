@@ -207,22 +207,35 @@ export function CommentsPanel(
 		message?: CommentFrameBridgeMessage,
 	) => {
 		if (!pendingCommentRefs) return;
-		const responseStatus = getCommentFrameResponseStatus();
+		if (message?.isCloudflareChallenge) {
+			handleCommentSubmissionFailure(new Error(CLOUDFLARE_CHALLENGE_MESSAGE));
+			return;
+		}
+		const respStatus = getCommentFrameResponseStatus();
+		const frameUrl = commentChallengeFrame.contentWindow?.location.href;
+		if (message?.href && frameUrl && message.href !== frameUrl) {
+			console.debug("[novele] comment iframe bridge href mismatch", {
+				source,
+				bridgeHref: message.href,
+				frameUrl,
+			});
+			return;
+		}
 		console.debug(`[novele] comment iframe ${source}`, {
 			bridgeCloudflare: message?.isCloudflareChallenge,
 			bridgeHref: message?.href,
-			url: commentChallengeFrame.contentWindow?.location.href,
-			responseStatus,
+			url: frameUrl,
+			respStatus,
 		});
 		try {
 			const doc = commentChallengeFrame.contentDocument;
-			const finalUrl = commentChallengeFrame.contentWindow?.location.href;
+			const finalUrl = frameUrl;
 			if (!doc || !finalUrl) return;
 			const bundle = resolveCommentPostResult(
 				pendingCommentRefs,
 				doc,
 				finalUrl,
-				responseStatus,
+				respStatus,
 			);
 			finalizeCommentPost();
 			data.completeCurrentCommentSubmission(bundle);
