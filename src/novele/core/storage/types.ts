@@ -1,4 +1,4 @@
-/** @mangle-preserve Persisted as JSON in sessionStorage. */
+/** @mangle-preserve Persisted as JSON in localStorage. */
 export type SessionChapterProgress = {
 	chapterUrl: string;
 	linkIndex: number;
@@ -6,7 +6,7 @@ export type SessionChapterProgress = {
 	updatedAt: number;
 };
 
-/** @mangle-preserve Persisted as JSON in sessionStorage. */
+/** @mangle-preserve Persisted as JSON in localStorage. */
 export type PersistedScrollRecord = {
 	ratio: number;
 	updatedAt: number;

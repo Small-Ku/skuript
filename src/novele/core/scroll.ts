@@ -1,6 +1,6 @@
 import { storage } from "./storage";
 
-/** @mangle-preserve Persisted as JSON in sessionStorage. */
+/** @mangle-preserve Persisted as JSON in localStorage. */
 export type ScrollRecord = {
 	ratio: number;
 };

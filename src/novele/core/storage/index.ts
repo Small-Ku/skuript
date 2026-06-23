@@ -1,7 +1,7 @@
 import { GmValuesDriver } from "./drivers/gm-values";
 import { IndexedDbDriver } from "./drivers/indexed-db";
+import { LocalStorageDriver } from "./drivers/local-storage";
 import { MemoryMapDriver } from "./drivers/memory-map";
-import { SessionStorageDriver } from "./drivers/session-storage";
 import {
 	type ChapterCacheStore,
 	IndexedDbChapterCacheStore,
@@ -37,7 +37,7 @@ export interface NoveleStorage {
 }
 
 export function createNoveleStorage(): NoveleStorage {
-	const sessionDriver = new SessionStorageDriver();
+	const localDriver = new LocalStorageDriver();
 	const pageCacheDriver = new IndexedDbDriver(
 		"novele-cache-v1",
 		1,
@@ -82,7 +82,7 @@ export function createNoveleStorage(): NoveleStorage {
 	);
 	const storage = {
 		preferences: new PreferencesStoreImpl(new GmValuesDriver()),
-		readerSession: new ReaderSessionStoreImpl(sessionDriver),
+		readerSession: new ReaderSessionStoreImpl(localDriver),
 		pageCache: new IndexedDbPageCacheStore(pageCacheDriver),
 		chapterCache: new IndexedDbChapterCacheStore(pageCacheDriver),
 		runtimePages: new RuntimePageStoreImpl(new MemoryMapDriver()),

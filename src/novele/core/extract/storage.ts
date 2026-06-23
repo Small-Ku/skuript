@@ -67,7 +67,7 @@ export type StoredPage = {
 	dom?: Document;
 };
 
-/** @mangle-preserve Persisted as JSON in sessionStorage. */
+/** @mangle-preserve Persisted in IndexedDB page cache. */
 type SessionPage = PersistedPageRecord;
 const STORAGE_VERSION = 1;
 

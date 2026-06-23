@@ -1,7 +1,7 @@
 import { normalizeChapterUrl } from "./scroll";
 import { storage } from "./storage";
 
-/** @mangle-preserve Persisted as JSON in sessionStorage. */
+/** @mangle-preserve Persisted as JSON in localStorage. */
 export type ChapterProgressRecord = {
 	chapterUrl: string;
 	linkIndex: number;

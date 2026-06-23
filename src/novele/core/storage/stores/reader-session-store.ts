@@ -1,4 +1,4 @@
-import type { SessionStorageDriver } from "../drivers/session-storage";
+import type { LocalStorageDriver } from "../drivers/local-storage";
 import { createWriteCoalescer } from "../schedulers/write-coalescer";
 import type { PersistedScrollRecord, SessionChapterProgress } from "../types";
 
@@ -52,7 +52,7 @@ export class ReaderSessionStoreImpl implements ReaderSessionStore {
 		},
 	});
 
-	constructor(private readonly driver: SessionStorageDriver) {}
+	constructor(private readonly driver: LocalStorageDriver) {}
 
 	readChapterProgress(pageUrl = window.location.href) {
 		const stored = this.driver.getItem(getChapterProgressStorageKey(pageUrl));
