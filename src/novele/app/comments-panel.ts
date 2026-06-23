@@ -100,7 +100,7 @@ export function CommentsPanel(
 		class: () =>
 			[
 				`${nameMap.commentChallengeFrame} ${nameMap.pillPanel}`,
-				data.currentComments.val.needsCloudflareVerification
+				data.currentComments.val.waitingForCloudflareVerification
 					? ""
 					: nameMap.commentChallengeFrameHidden,
 			]
@@ -194,41 +194,53 @@ export function CommentsPanel(
 		(error instanceof Error ? error.message : `${error}`) ===
 		CLOUDFLARE_CHALLENGE_MESSAGE;
 
-	const hasStoppedIframeChallenge = () =>
-		data.currentComments.val.needsCloudflareVerification &&
-		commentChallengeReloadCount.val >= challengeReloadFallbackThreshold;
-
 	const enterCommentChallengeWait = (challengeUrl: string) => {
 		clearCommentPostTimeout();
 		commentChallengeFallbackUrl.val = challengeUrl;
 		if (data.currentComments.val.waitingForCloudflareVerification) return;
-		data.failCurrentCommentSubmission(new Error(CLOUDFLARE_CHALLENGE_MESSAGE));
+		data.failCurrentCommentSubmission(new Error(CLOUDFLARE_CHALLENGE_MESSAGE), {
+			waitingForCloudflareVerification: true,
+		});
 		console.info(
 			"[novele] comment submission waiting for Cloudflare verification",
 		);
 	};
 
-	const noteCommentChallengeReload = (
-		source: "load" | "message",
-		challengeUrl: string,
-		responseStatus?: number,
-	) => {
+	const enterCommentChallengeManualMode = (challengeUrl: string) => {
+		pendingCommentRefs = null;
+		clearCommentPostTimeout();
 		commentChallengeFallbackUrl.val = challengeUrl;
-		commentChallengeReloadCount.val += 1;
-		console.debug("[novele] comment challenge iframe reloaded", {
-			source,
+		data.failCurrentCommentSubmission(new Error(CLOUDFLARE_CHALLENGE_MESSAGE));
+		resetCommentFrame();
+		console.info("[novele] switched comment verification to manual resend", {
 			url: challengeUrl,
 			reloadCount: commentChallengeReloadCount.val,
-			responseStatus,
+		});
+	};
+
+	const handleCommentChallengeDetected = (
+		source: "load" | "message",
+		challengeUrl: string,
+	) => {
+		if (!data.currentComments.val.waitingForCloudflareVerification) {
+			enterCommentChallengeWait(challengeUrl);
+			return;
+		}
+		if (source !== "load") return;
+		commentChallengeReloadCount.val += 1;
+		console.debug("[novele] observed comment challenge reload", {
+			url: challengeUrl,
+			reloadCount: commentChallengeReloadCount.val,
 		});
 		if (commentChallengeReloadCount.val >= challengeReloadFallbackThreshold) {
-			clearCommentPostTimeout();
-			resetCommentFrame();
-			console.info("[novele] stopped iframe challenge retries", {
-				url: challengeUrl,
-				reloadCount: commentChallengeReloadCount.val,
-			});
+			enterCommentChallengeManualMode(challengeUrl);
+			return;
 		}
+		console.debug("[novele] comment iframe still awaiting verification", {
+			url: challengeUrl,
+			reloadCount: commentChallengeReloadCount.val,
+			source,
+		});
 	};
 
 	const handleCommentSubmissionFailure = (error: unknown) => {
@@ -269,7 +281,6 @@ export function CommentsPanel(
 		message?: CommentFrameBridgeMessage,
 	) => {
 		if (!pendingCommentRefs) return;
-		if (hasStoppedIframeChallenge()) return;
 		const respStatus = getCommentFrameResponseStatus();
 		const frameUrl = commentChallengeFrame.contentWindow?.location.href;
 		if (message?.href && frameUrl && message.href !== frameUrl) {
@@ -292,21 +303,8 @@ export function CommentsPanel(
 			if (!doc || !finalUrl) return;
 			const isCloudflareChallenge =
 				message?.isCloudflareChallenge || isCloudflareChallengeDocument(doc);
-			if (
-				isCloudflareChallenge &&
-				data.currentComments.val.waitingForCloudflareVerification
-			) {
-				noteCommentChallengeReload(source, finalUrl, respStatus);
-				console.debug("[novele] comment iframe still awaiting verification", {
-					source,
-					url: finalUrl,
-					respStatus,
-					reloadCount: commentChallengeReloadCount.val,
-				});
-				return;
-			}
 			if (isCloudflareChallenge) {
-				enterCommentChallengeWait(finalUrl);
+				handleCommentChallengeDetected(source, finalUrl);
 				return;
 			}
 			const bundle = resolveCommentPostResult(
@@ -323,14 +321,14 @@ export function CommentsPanel(
 			resetCommentFrame();
 		} catch (error) {
 			if (isCloudflareChallengeError(error)) {
-				enterCommentChallengeWait(frameUrl ?? ZHENHUN_COMMENT_POST_URL);
-				if (data.currentComments.val.waitingForCloudflareVerification) {
-					noteCommentChallengeReload(
-						source,
-						frameUrl ?? ZHENHUN_COMMENT_POST_URL,
-						respStatus,
-					);
-				}
+				handleCommentChallengeDetected(
+					source,
+					frameUrl ?? message?.href ?? ZHENHUN_COMMENT_POST_URL,
+				);
+				console.debug(
+					`[novele] comment iframe ${source} waiting for verification`,
+				);
+				return;
 			}
 			handleCommentSubmissionFailure(error);
 			console.debug(`[novele] comment iframe ${source} failed`, error);
@@ -339,7 +337,6 @@ export function CommentsPanel(
 
 	(window as WindowWithCommentFrameBridge)[COMMENT_FRAME_BRIDGE_CALLBACK_NAME] =
 		(message) => {
-			if (hasStoppedIframeChallenge()) return;
 			if (
 				commentChallengeFrame.contentWindow &&
 				commentChallengeFrame.contentWindow !== window
@@ -349,14 +346,12 @@ export function CommentsPanel(
 		};
 
 	commentChallengeFrame.addEventListener("load", () => {
-		if (hasStoppedIframeChallenge()) return;
 		window.setTimeout(() => {
 			handleCommentFrameResult("load");
 		}, 0);
 	});
 
 	window.addEventListener("message", (event: MessageEvent) => {
-		if (hasStoppedIframeChallenge()) return;
 		if (event.origin !== window.location.origin) return;
 		if (event.source !== commentChallengeFrame.contentWindow) return;
 		if (!isCommentFrameBridgeMessage(event.data)) return;
@@ -520,7 +515,7 @@ export function CommentsPanel(
 
 	return aside(
 		{
-			class: drawerClass(ui, "comments", [nameMap.commentsSheet]),
+			class: drawerClass(ui, "comments"),
 			onclick: (event) => event.stopPropagation(),
 		},
 		drawerHeader("Comments", close, commentHeaderTail(data)),
@@ -584,9 +579,13 @@ export function CommentsPanel(
 										? div(
 												{ class: nameMap.commentChallengeStatus },
 												span({ class: nameMap.commentChallengeHint }, () =>
-													commentChallengeReloadCount.val > 0
-														? `Iframe challenge reloaded ${commentChallengeReloadCount.val} time(s). Novele will try a new tab after ${challengeReloadFallbackThreshold} reloads.`
-														: `Waiting for Cloudflare verification in the iframe. Novele will try a new tab after ${challengeReloadFallbackThreshold} reloads.`,
+													data.currentComments.val
+														.waitingForCloudflareVerification
+														? `Waiting for Cloudflare verification in the iframe. Novele will switch to manual mode after Cloudflare reloads it ${challengeReloadFallbackThreshold} time(s). Current reloads: ${commentChallengeReloadCount.val}/${challengeReloadFallbackThreshold}.`
+														: commentChallengeReloadCount.val >=
+																challengeReloadFallbackThreshold
+															? `Iframe verification still failed after ${challengeReloadFallbackThreshold} Cloudflare reloads. Complete verification in a new tab, then press RETRY.`
+															: `Complete verification, then press RETRY to resend your original comment draft.`,
 												),
 												button(
 													{
@@ -596,10 +595,13 @@ export function CommentsPanel(
 														onclick: openCommentChallengeFallback,
 													},
 													() =>
-														commentChallengeReloadCount.val >=
-														challengeReloadFallbackThreshold
-															? "VERIFY IN TAB"
-															: "OPEN VERIFY TAB",
+														data.currentComments.val
+															.waitingForCloudflareVerification
+															? "OPEN VERIFY TAB"
+															: commentChallengeReloadCount.val >=
+																	challengeReloadFallbackThreshold
+																? "VERIFY IN TAB"
+																: "OPEN VERIFY TAB",
 												),
 											)
 										: "",
@@ -635,13 +637,6 @@ export function CommentsPanel(
 							class: `${nameMap.postActionButton} ${nameMap.pillPanel}`,
 							disabled: () => {
 								const comments = data.currentComments.val;
-								if (
-									comments.needsCloudflareVerification &&
-									commentChallengeReloadCount.val >=
-										challengeReloadFallbackThreshold
-								) {
-									return !commentChallengeFallbackUrl.val;
-								}
 								return (
 									comments.isLoading ||
 									comments.posting ||
@@ -650,32 +645,16 @@ export function CommentsPanel(
 									!ui.commentDraft.val.trim()
 								);
 							},
-							type: () =>
-								data.currentComments.val.needsCloudflareVerification &&
-								commentChallengeReloadCount.val >=
-									challengeReloadFallbackThreshold
-									? "button"
-									: "submit",
-							onclick: (event: Event) => {
-								if (
-									data.currentComments.val.needsCloudflareVerification &&
-									commentChallengeReloadCount.val >=
-										challengeReloadFallbackThreshold
-								) {
-									event.preventDefault();
-									openCommentChallengeFallback();
-								}
-							},
+							type: "submit",
 						},
 						() =>
-							data.currentComments.val.needsCloudflareVerification
-								? commentChallengeReloadCount.val >=
-									challengeReloadFallbackThreshold
-									? "VERIFY TAB"
-									: "VERIFY"
-								: data.currentComments.val.posting
-									? "POSTING"
-									: "POST",
+							data.currentComments.val.waitingForCloudflareVerification
+								? "VERIFY"
+								: data.currentComments.val.needsCloudflareVerification
+									? "RETRY"
+									: data.currentComments.val.posting
+										? "POSTING"
+										: "POST",
 					),
 				),
 			),

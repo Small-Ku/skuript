@@ -21,7 +21,7 @@ const logger = winston.createLogger({
 		winston.format.cli(),
 		winston.format.printf(
 			(info) =>
-				`${info.timestamp} ${info.level}: ${info.message} ${info.splat !== undefined ? info.splat : ""}`,
+				`${info.timestamp} ${info.level}: ${info.message} ${info.splat !== undefined ? info.splat : ""}${info.stack ? `\n${info.stack}` : ""}`,
 		),
 	),
 	transports: [consoleTransport],
@@ -202,43 +202,56 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 	);
 
 	logger.info(`Building ${entrypoint}`);
-	const build = await Bun.build({
-		entrypoints: [entrypoint],
-		outdir: "./dist",
-		naming: `${scriptName}.user.js`,
-		minify: dev
-			? false
-			: {
-					whitespace: true,
-					syntax: true,
-					identifiers: true,
-				},
-		sourcemap: dev ? "inline" : undefined,
-		plugins: [
-			typeScriptSourceTransform({
-				transforms: [
-					...(dev ? [] : [denseEnumValues({ logger })]),
-					cssModuleNamedImports(),
-				],
-			}),
-			styleLoader({ cssModules: true, targets: STYLE_TARGETS }),
-			...(dev
-				? []
-				: [
-						userscriptOptimizer({
-							ecma: SCRIPT_ECMA_VERSION,
-							headerText,
-							logger,
-							scriptName,
-						}),
-					]),
-		],
-		banner: dev ? headerText : undefined,
-	});
+	let build: Awaited<ReturnType<typeof Bun.build>>;
+	try {
+		build = await Bun.build({
+			entrypoints: [entrypoint],
+			outdir: "./dist",
+			naming: `${scriptName}.user.js`,
+			minify: dev
+				? false
+				: {
+						whitespace: true,
+						syntax: true,
+						identifiers: true,
+					},
+			sourcemap: dev ? "inline" : undefined,
+			plugins: [
+				typeScriptSourceTransform({
+					transforms: [
+						...(dev ? [] : [denseEnumValues({ logger })]),
+						cssModuleNamedImports(),
+					],
+				}),
+				styleLoader({ cssModules: true, targets: STYLE_TARGETS }),
+				...(dev
+					? []
+					: [
+							userscriptOptimizer({
+								ecma: SCRIPT_ECMA_VERSION,
+								headerText,
+								logger,
+								scriptName,
+							}),
+						]),
+			],
+			banner: dev ? headerText : undefined,
+		});
+	} catch (err) {
+		logger.error("Bun.build threw an exception:", err as Error);
+		if (err && typeof err === "object") {
+			logger.error(Bun.inspect(err, { colors: true }));
+		}
+		throw err;
+	}
 
 	logger.info(Bun.inspect(build, { colors: true }));
 
 	if (!build.success) {
+		logger.error(
+			"Build failed. Logs:",
+			Bun.inspect(build.logs, { colors: true }),
+		);
 		throw new Error("Bun build return errors");
 	}
 

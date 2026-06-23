@@ -341,15 +341,21 @@ export function createReaderData() {
 			waitingForCloudflareVerification: false,
 		};
 	};
-	const failCurrentCommentSubmission = (error: unknown) => {
+	const failCurrentCommentSubmission = (
+		error: unknown,
+		options?: { waitingForCloudflareVerification?: boolean },
+	) => {
 		const message = error instanceof Error ? error.message : `${error}`;
+		const needsCloudflareVerification =
+			message === CLOUDFLARE_CHALLENGE_MESSAGE;
 		currentComments.val = {
 			...currentComments.val,
-			posting: message === CLOUDFLARE_CHALLENGE_MESSAGE,
+			posting: false,
 			error: message,
-			needsCloudflareVerification: message === CLOUDFLARE_CHALLENGE_MESSAGE,
+			needsCloudflareVerification,
 			waitingForCloudflareVerification:
-				message === CLOUDFLARE_CHALLENGE_MESSAGE,
+				needsCloudflareVerification &&
+				Boolean(options?.waitingForCloudflareVerification),
 		};
 	};
 	const currentStatus = van.derive(() => {
