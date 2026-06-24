@@ -17,6 +17,19 @@ interface Job<TJobContext extends object, TResult = unknown> {
 }
 
 /**
+ * Optional configuration for a JobQueue instance.
+ */
+export interface JobQueueOptions {
+	/**
+	 * Called whenever the queue transitions between idle and active.
+	 * `active` is `true` when there are jobs running or queued, `false` when the queue goes idle.
+	 * Useful for external controllers (e.g. FPS-based concurrency throttlers) that need to
+	 * start or stop background monitoring only while the queue has work to do.
+	 */
+	onActiveChange?: (active: boolean) => void;
+}
+
+/**
  * An asynchronous job queue that processes tasks with dynamic priority,
  * concurrency control, and context-aware prioritization.
  *
@@ -39,14 +52,16 @@ export class JobQueue<
 		queueState: TContext,
 	) => number;
 	private queueState: TContext; // Queue-wide mutable context
+	private readonly onActiveChange?: (active: boolean) => void;
 
 	// Operational State
 	private queue: Job<TJobContext, TResult>[] = [];
-	private runningJobs: number = 0;
+	private executing = new Set<Promise<void>>();
+	private isActive = false;
 
 	// State flags for deferred processing
-	private priorityStale: boolean = false;
-	private orderStale: boolean = false;
+	private priorityStale = false;
+	private orderStale = false;
 
 	/**
 	 * Creates an instance of JobQueue.
@@ -56,11 +71,13 @@ export class JobQueue<
 	 * (lower numbers are higher priority).
 	 * @param initialContext The initial state of the queue's context (`TContext`).
 	 * @param concurrency The maximum number of jobs to run concurrently. Must be a positive integer. Defaults to 3.
+	 * @param options Optional configuration including an `onActiveChange` callback.
 	 */
 	constructor(
 		rankFn: (jobContext: TJobContext, queueState: TContext) => number,
 		initialContext: TContext,
 		concurrency: number = 3,
+		options?: JobQueueOptions,
 	) {
 		if (typeof rankFn !== "function") {
 			throw new Error("A priority function (rankFn) must be provided.");
@@ -73,6 +90,7 @@ export class JobQueue<
 
 		this.rankFn = rankFn;
 		this.queueState = initialContext;
+		this.onActiveChange = options?.onActiveChange;
 
 		if (
 			typeof concurrency !== "number" ||
@@ -92,13 +110,13 @@ export class JobQueue<
 	 * The job's priority is calculated using the `priorityFn`.
 	 * If the queue's priority or order state is stale, the job is pushed to the end;
 	 * otherwise, it's inserted in its sorted position.
-	 * @param task The asynchronous function to execute for this job. It should return a `Promise<TResult>`.
+	 * @param task The asynchronous function to execute for this job. It can optionally receive the job context.
 	 * @param jobContext The job-specific context (`TJobContext`) for this task.
 	 * @returns A `Promise<TResult>` that resolves with the result of the task when it completes,
 	 * or rejects if the task fails or is cancelled (e.g., by `clearQueue`).
 	 */
-	public async addJob(
-		task: () => Promise<TResult>,
+	public addJob(
+		task: (args: TJobContext) => Promise<TResult>,
 		jobContext: TJobContext,
 	): Promise<TResult> {
 		const rank = this.rankFn(jobContext, this.queueState);
@@ -178,6 +196,16 @@ export class JobQueue<
 		this.orderStale = false;
 	}
 
+	/**
+	 * Returns a promise that resolves when all currently executing and queued jobs have completed.
+	 * If the queue is empty and no jobs are executing, it resolves immediately.
+	 */
+	public async drain(): Promise<void> {
+		while (this.queue.length > 0 || this.executing.size > 0) {
+			await Promise.all(this.executing);
+		}
+	}
+
 	// --- Public Getter Methods ---
 
 	/**
@@ -193,7 +221,7 @@ export class JobQueue<
 	 * @returns The number of running jobs.
 	 */
 	public getRunningJobsCount(): number {
-		return this.runningJobs;
+		return this.executing.size;
 	}
 
 	// --- Private Core Logic & Helper Methods ---
@@ -209,10 +237,19 @@ export class JobQueue<
 		if (this.queue.length === 0) {
 			this.priorityStale = false;
 			this.orderStale = false;
+			if (this.isActive && this.executing.size === 0) {
+				this.isActive = false;
+				this.onActiveChange?.(false);
+			}
 			return;
 		}
-		if (this.runningJobs >= this.concurrency) {
+		if (this.executing.size >= this.concurrency) {
 			return;
+		}
+
+		if (!this.isActive) {
+			this.isActive = true;
+			this.onActiveChange?.(true);
 		}
 
 		if (this.priorityStale) {
@@ -222,13 +259,14 @@ export class JobQueue<
 			this._sortQueue();
 		}
 
-		while (this.runningJobs < this.concurrency && this.queue.length > 0) {
+		while (this.executing.size < this.concurrency && this.queue.length > 0) {
 			const job = this.queue.shift()!;
-			this.runningJobs++;
 
-			job
-				.task(job.jobArgs)
-				.then((result: TResult) => {
+			// Wrap execution in Promise.resolve().then(...) to guarantee synchronous errors are caught.
+			// The internal tracker promise never rejects, ensuring Promise.all(executing) resolves smoothly in drain().
+			const promise: Promise<void> = Promise.resolve()
+				.then(() => job.task(job.jobArgs))
+				.then((result) => {
 					job._resolve(result);
 				})
 				.catch((error) => {
@@ -239,9 +277,11 @@ export class JobQueue<
 					job._reject(error);
 				})
 				.finally(() => {
-					this.runningJobs--;
+					this.executing.delete(promise);
 					this._processQueue();
 				});
+
+			this.executing.add(promise);
 		}
 	}
 

@@ -1,3 +1,4 @@
+import { FpsConcurrencyController } from "../../util/fps-throttle";
 import { JobQueue } from "../../util/job-queue";
 import { hydrateResolvedChapter, resolvePageChapter } from "./extract/chapters";
 import {
@@ -35,6 +36,10 @@ interface QueueContext {
 	currentOrderHint: number;
 }
 
+// fpsThrottle is assigned immediately after fetchQueue; the onActiveChange closure
+// is only ever invoked after addJob(), which occurs after module init completes.
+let fpsThrottle: FpsConcurrencyController<FetchContext, QueueContext, unknown>;
+
 const fetchQueue = new JobQueue<FetchContext, QueueContext, unknown>(
 	(jobContext, context) => {
 		if (jobContext.kind === "comment-post") return -1_000_000;
@@ -52,7 +57,10 @@ const fetchQueue = new JobQueue<FetchContext, QueueContext, unknown>(
 	},
 	{ currentOrderHint: 0 },
 	3,
+	{ onActiveChange: (active) => fpsThrottle.onActiveChange(active) },
 );
+
+fpsThrottle = new FpsConcurrencyController(fetchQueue);
 
 const inFlightFetches = new Map<string, Promise<void>>();
 const CHAPTER_LOOKAHEAD = 6;
@@ -108,6 +116,19 @@ async function fetchPageText(
 	}
 }
 
+async function performQueueFetch(ctx: FetchContext): Promise<void> {
+	const isCommentPost = ctx.kind === "comment-post";
+	try {
+		if (!isCommentPost && canUseCurrentDocument(ctx.url)) {
+			registerCurrentPage(ctx.url);
+			return;
+		}
+		registerPageRaw(ctx.url, await fetchPageText(ctx.url, isCommentPost));
+	} finally {
+		inFlightFetches.delete(ctx.url);
+	}
+}
+
 async function queueFetch(
 	url: string,
 	orderHint: number,
@@ -124,20 +145,11 @@ async function queueFetch(
 	const existing = inFlightFetches.get(url);
 	if (existing) return existing;
 
-	const promise = fetchQueue.addJob(
-		async () => {
-			try {
-				if (!isCommentPost && canUseCurrentDocument(url)) {
-					registerCurrentPage(url);
-					return;
-				}
-				registerPageRaw(url, await fetchPageText(url, isCommentPost));
-			} finally {
-				inFlightFetches.delete(url);
-			}
-		},
-		{ ...context, url, orderHint },
-	) as Promise<void>;
+	const promise = fetchQueue.addJob(performQueueFetch, {
+		...context,
+		url,
+		orderHint,
+	}) as Promise<void>;
 	inFlightFetches.set(url, promise);
 	return promise;
 }
