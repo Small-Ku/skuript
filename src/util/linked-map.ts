@@ -60,6 +60,7 @@ export class LinkedMap<TData, TId = string> {
 	}
 
 	// Insert a new item BEFORE a specific existing item
+	/** @mangle-force */
 	insertBefore(newItemId: TId, newItemData: TData, beforeId: TId): void {
 		const refItem = this.items.get(beforeId);
 		if (!refItem) throw new Error("Reference item not found");
@@ -107,6 +108,7 @@ export class LinkedMap<TData, TId = string> {
 	}
 
 	// Get the full list in order (O(n))
+	/** @mangle-force */
 	toArray(): TData[] {
 		const result: TData[] = [];
 		let currentId = this.head;

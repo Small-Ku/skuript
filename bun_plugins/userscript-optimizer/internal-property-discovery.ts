@@ -7,7 +7,7 @@ import {
 	collectTypeLiteralPropertyNames,
 	hasPropertyMangleForceAnnotation,
 	hasPropertyManglePreserveAnnotation,
-} from "./userscript-property-mangle-shared";
+} from "./property-mangle-shared";
 
 function collectObjectLiteralPropertyNames(
 	sourceFile: Project["createSourceFile"] extends (...args: never[]) => infer T
@@ -20,6 +20,12 @@ function collectObjectLiteralPropertyNames(
 		SyntaxKind.PropertyAssignment,
 	)) {
 		const nameNode = property.getNameNode();
+		if (
+			!nameNode ||
+			nameNode.getKind() !== SyntaxKind.PropertyAccessExpression
+		) {
+			// (Keep standard SyntaxKind check but match exactly original check)
+		}
 		if (!nameNode || nameNode.getKind() !== SyntaxKind.Identifier) {
 			continue;
 		}
@@ -91,6 +97,8 @@ export async function discoverInternalObjectProperties(
 					collectPropertySignatureNames(typeNode, names, reserved);
 				}
 
+				const isUtilFile = filePath.split(path.sep).includes("util");
+
 				for (const declaration of sourceFile.getClasses()) {
 					for (const property of declaration.getProperties()) {
 						if (
@@ -100,7 +108,10 @@ export async function discoverInternalObjectProperties(
 							addPropertyName(reserved, property.getName());
 							continue;
 						}
-						if (!property.getText().trimStart().startsWith("private ")) {
+						if (
+							!isUtilFile &&
+							!property.getModifiers().some((m) => m.getText() === "private")
+						) {
 							continue;
 						}
 						if (hasPropertyMangleForceAnnotation(property)) {
@@ -108,6 +119,64 @@ export async function discoverInternalObjectProperties(
 							continue;
 						}
 						addPropertyName(names, property.getName());
+					}
+
+					for (const constructorDec of declaration.getConstructors()) {
+						for (const param of constructorDec.getParameters()) {
+							const isPrivate = param
+								.getModifiers()
+								.some((m) => m.getText() === "private");
+							const isProtected = param
+								.getModifiers()
+								.some((m) => m.getText() === "protected");
+							const isPublic = param
+								.getModifiers()
+								.some((m) => m.getText() === "public");
+							const isReadonly = param
+								.getModifiers()
+								.some((m) => m.getText() === "readonly");
+							const isParamProperty =
+								isPrivate || isProtected || isPublic || isReadonly;
+							if (!isParamProperty) {
+								continue;
+							}
+							if (
+								hasPropertyManglePreserveAnnotation(declaration) ||
+								hasPropertyManglePreserveAnnotation(param)
+							) {
+								addPropertyName(reserved, param.getName());
+								continue;
+							}
+							if (!isUtilFile && !isPrivate) {
+								continue;
+							}
+							if (hasPropertyMangleForceAnnotation(param)) {
+								addPropertyName(forced, param.getName());
+								continue;
+							}
+							addPropertyName(names, param.getName());
+						}
+					}
+
+					for (const method of declaration.getMethods()) {
+						if (
+							hasPropertyManglePreserveAnnotation(declaration) ||
+							hasPropertyManglePreserveAnnotation(method)
+						) {
+							addPropertyName(reserved, method.getName());
+							continue;
+						}
+						if (
+							!isUtilFile &&
+							!method.getModifiers().some((m) => m.getText() === "private")
+						) {
+							continue;
+						}
+						if (hasPropertyMangleForceAnnotation(method)) {
+							addPropertyName(forced, method.getName());
+							continue;
+						}
+						addPropertyName(names, method.getName());
 					}
 				}
 

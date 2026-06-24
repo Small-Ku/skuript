@@ -3,6 +3,7 @@ export class IndexedDbDriver {
 
 	constructor(
 		private readonly dbName: string,
+		/** @mangle-force */
 		private readonly version: number,
 		private readonly onUpgrade: (
 			db: IDBDatabase,

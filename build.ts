@@ -7,15 +7,13 @@ import type { PackageJson } from "type-fest";
 import winston from "winston";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
-import cssModuleNamedImports from "./bun_plugins/css-module-named-imports";
-import denseEnumValues from "./bun_plugins/dense-enum-values";
-import devOnlyMarker from "./bun_plugins/dev-only-marker";
-import styleLoader from "./bun_plugins/style-loader";
-import typeScriptSourceTransform from "./bun_plugins/typescript-source-transform";
-import {
-	mangleForcePropertiesSourceTransform,
-	default as userscriptOptimizer,
-} from "./bun_plugins/userscript-optimizer";
+import styleLoader from "./bun_plugins/style-loader/style-loader";
+import cssModuleNamedImports from "./bun_plugins/typescript-transforms/css-module-named-imports";
+import denseEnumValues from "./bun_plugins/typescript-transforms/dense-enum-values";
+import devOnlyMarker from "./bun_plugins/typescript-transforms/dev-only-marker";
+import { mangleForcePropertiesSourceTransform } from "./bun_plugins/typescript-transforms/mangle-force";
+import typeScriptSourceTransform from "./bun_plugins/typescript-transforms/typescript-source-transform";
+import userscriptOptimizer from "./bun_plugins/userscript-optimizer/userscript-optimizer";
 
 const consoleTransport = new winston.transports.Console();
 const logger = winston.createLogger({
@@ -206,6 +204,14 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 	);
 
 	logger.info(`Building ${entrypoint}`);
+
+	const devOnly = devOnlyMarker();
+	const denseEnums = denseEnumValues({ logger });
+	const mangleForce = mangleForcePropertiesSourceTransform({
+		scriptName,
+		precedingTransforms: [devOnly, denseEnums],
+	});
+
 	let build: Awaited<ReturnType<typeof Bun.build>>;
 	try {
 		build = await Bun.build({
@@ -224,9 +230,7 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 			plugins: [
 				typeScriptSourceTransform({
 					transforms: [
-						...(dev ? [] : [devOnlyMarker()]),
-						...(dev ? [] : [denseEnumValues({ logger })]),
-						...(dev ? [] : [mangleForcePropertiesSourceTransform()]),
+						...(dev ? [] : [devOnly, denseEnums, mangleForce]),
 						cssModuleNamedImports(),
 					],
 				}),

@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { type ECMA, type MinifyOptions, minify } from "terser";
-import { renameUserscriptCssCustomProperties } from "./userscript-css-custom-property-rename";
-import type { DiscoveredInternalObjectProperties } from "./userscript-internal-property-discovery";
-import { escapeRegex } from "./userscript-property-mangle-shared";
+import { getCssCustomPropertyRenameEntries } from "../style-loader/style-loader";
+import type { DiscoveredInternalObjectProperties } from "./internal-property-discovery";
+import { escapeRegex } from "./property-mangle-shared";
 
 type UserscriptMinifiedBodyOptions = {
 	body: string;
@@ -38,6 +38,22 @@ async function getTerserDomPropertyNames() {
 	return terserDomPropertyNamesPromise;
 }
 
+function renameUserscriptCssCustomProperties(code: string): string {
+	let result = code;
+
+	for (const [sourceName, renamed] of getCssCustomPropertyRenameEntries()) {
+		result = result.replace(
+			new RegExp(
+				`(?<![A-Za-z0-9_-])${escapeRegex(sourceName)}(?![A-Za-z0-9_-])`,
+				"g",
+			),
+			renamed,
+		);
+	}
+
+	return result;
+}
+
 export async function buildUserscriptMinifiedBody(
 	options: UserscriptMinifiedBodyOptions,
 ): Promise<string> {
@@ -47,6 +63,9 @@ export async function buildUserscriptMinifiedBody(
 		terserDomPropertyNames.has(name),
 	);
 	if (safelistCollisions.length) {
+		options.logger.warn(
+			`React/Terser DOM property name collisions detected: ${safelistCollisions.join(", ")}. These will not be mangled to avoid breaking DOM interop.`,
+		);
 		options.logger.warn(
 			`Userscript property mangle skipped ${safelistCollisions.length} Terser DOM safelist collision(s): ${safelistCollisions.join(", ")}. Rename internal-only fields if you want them shortened in the compiled userscript.`,
 		);

@@ -42,6 +42,7 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
 export class IndexedDbChapterCacheStore implements ChapterCacheStore {
 	constructor(private readonly driver: IndexedDbDriver) {}
 
+	/** @mangle-force */
 	private async transaction(mode: IDBTransactionMode) {
 		const db = await this.driver.open();
 		const transaction = db.transaction(

@@ -1,8 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import type { BuildOutput, BunPlugin } from "bun";
-import { mangleForcePropertiesSourceTransform } from "./userscript-force-mangle-source-transform";
-import { discoverInternalObjectProperties } from "./userscript-internal-property-discovery";
-import { buildUserscriptMinifiedBody } from "./userscript-minified-body";
+import { discoverInternalObjectProperties } from "./internal-property-discovery";
+import { buildUserscriptMinifiedBody } from "./minified-body";
 
 type UserscriptOptimizerPluginOptions = {
 	ecma: number;
@@ -15,8 +14,6 @@ type UserscriptOptimizerPluginOptions = {
 type PluginBuilderWithOnEnd = Parameters<NonNullable<BunPlugin["setup"]>>[0] & {
 	onEnd(callback: (result: BuildOutput) => void | Promise<void>): void;
 };
-
-export { mangleForcePropertiesSourceTransform };
 
 export default function userscriptOptimizer(
 	options: UserscriptOptimizerPluginOptions,
