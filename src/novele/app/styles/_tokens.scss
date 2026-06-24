@@ -56,25 +56,35 @@
 		--font-reader: "Newsreader", Georgia, serif;
 		--font-literata: "Literata", Georgia, serif;
 		--font-mono:
-			"IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+			"IBM Plex Mono",
+			"SFMono-Regular",
+			Consolas,
+			"Liberation Mono",
+			monospace;
 		--glass-blur: blur(24px);
 		--ui-density-scale: 1;
 		--ui-density-compact-progress: #{d.progress(
-				d.$compact-scale,
-				d.$comfortable-scale
-			)};
+			d.$compact-scale,
+			d.$comfortable-scale
+		)};
 		--ui-density-spacious-progress: #{d.progress(
-				d.$comfortable-scale,
-				d.$spacious-scale
-			)};
+			d.$comfortable-scale,
+			d.$spacious-scale
+		)};
 		--ui-dock-offset: #{d.token("shared", "dock-offset")};
 		--ui-fab-size: #{d.token("shared", "fab-size")};
 		--ui-bot-gap: #{d.token("shared", "bottom-gap")};
-		--ui-bot-right: calc(var(--ui-dock-offset) + var(--ui-fab-size) + var(--ui-bot-gap));
+		--ui-bot-right: calc(
+			var(--ui-dock-offset) + var(--ui-fab-size) + var(--ui-bot-gap)
+		);
 		--ui-nav-pad-block: 0;
 		--ui-arrow-pad-block: 0;
-		--ui-fab-center-x: calc(100% - var(--ui-dock-offset) - (var(--ui-fab-size) / 2));
-		--ui-fab-center-y: calc(100% - var(--ui-dock-offset) - (var(--ui-fab-size) / 2));
+		--ui-fab-center-x: calc(
+			100% - var(--ui-dock-offset) - (var(--ui-fab-size) / 2)
+		);
+		--ui-fab-center-y: calc(
+			100% - var(--ui-dock-offset) - (var(--ui-fab-size) / 2)
+		);
 		--reader-font-size: 1.1875em;
 		--reader-line-height: 1.625;
 		--reader-content-width: 42em;

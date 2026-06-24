@@ -404,8 +404,44 @@ export function createReaderData() {
 		nav.index.val = nextIndex;
 	};
 
-	const previous = () => goTo(nav.index.val - 1, "previous");
-	const next = () => goTo(nav.index.val + 1, "next");
+	const getCurrentChapterIndex = () => {
+		return chapterEntries.val.findIndex((entry, idx) => {
+			const nextEntry = chapterEntries.val[idx + 1];
+			return (
+				nav.index.val >= entry.linkIndex &&
+				(!nextEntry || nav.index.val < nextEntry.linkIndex)
+			);
+		});
+	};
+
+	const goToChapter = (chapterIndex: number, mode: NavigationMode = "jump") => {
+		const targetIndex = Math.max(
+			0,
+			Math.min(chapterEntries.val.length - 1, chapterIndex),
+		);
+		const entry = chapterEntries.val[targetIndex];
+		if (entry) {
+			goTo(entry.linkIndex, mode);
+		}
+	};
+
+	const previous = () => {
+		const currentIdx = getCurrentChapterIndex();
+		if (currentIdx > 0) {
+			goToChapter(currentIdx - 1, "previous");
+		} else {
+			goTo(nav.index.val - 1, "previous");
+		}
+	};
+
+	const next = () => {
+		const currentIdx = getCurrentChapterIndex();
+		if (currentIdx >= 0 && currentIdx < chapterEntries.val.length - 1) {
+			goToChapter(currentIdx + 1, "next");
+		} else {
+			goTo(nav.index.val + 1, "next");
+		}
+	};
 
 	return {
 		links,
@@ -424,6 +460,7 @@ export function createReaderData() {
 		failCurrentCommentSubmission,
 		start,
 		goTo,
+		goToChapter,
 		previous,
 		next,
 	};
