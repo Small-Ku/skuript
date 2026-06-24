@@ -20,9 +20,6 @@
 }
 
 @mixin settings {
-	.settingsSheet {
-	}
-
 	.settingsContentWrapper {
 		position: relative;
 		flex: 1;
@@ -310,7 +307,7 @@
 
 	.colorButton {
 		border: 2px solid transparent;
-		border-radius: 999px !important;
+		border-radius: 999px;
 
 		&.active {
 			background: transparent;

@@ -230,7 +230,11 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 						cssModuleNamedImports(),
 					],
 				}),
-				styleLoader({ cssModules: true, targets: STYLE_TARGETS }),
+				styleLoader({
+					cssModules: true,
+					targets: STYLE_TARGETS,
+					minifyCustomProperties: !dev,
+				}),
 				...(dev
 					? []
 					: [

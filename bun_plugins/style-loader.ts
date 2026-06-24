@@ -16,10 +16,12 @@ import * as sass from "sass";
 export type StyleLoaderOptions = {
 	targets?: Targets;
 	cssModules?: boolean | CSSModulesConfig;
+	minifyCustomProperties?: boolean;
 };
 
 const defaultOptions: StyleLoaderOptions = {
 	cssModules: false,
+	minifyCustomProperties: true,
 };
 
 function getStyleFileInfo(filePath: string) {
@@ -74,6 +76,7 @@ export default function styleLoader(
 				return compileCSS(contents, args.path, {
 					cssModules: isCssModule ? opts.cssModules : false,
 					targets: opts.targets,
+					minifyCustomProperties: opts.minifyCustomProperties,
 				});
 			});
 		},
@@ -83,6 +86,7 @@ export default function styleLoader(
 type CompileOptions = {
 	cssModules?: boolean | CSSModulesConfig;
 	targets?: Targets;
+	minifyCustomProperties?: boolean;
 };
 
 function encodeCssIdent(value: number): string {
@@ -169,7 +173,9 @@ function shortenCssModuleNames(
 
 function createCssCustomPropertyVisitor(
 	cssCustomPropertyNames: Set<string>,
+	minifyCustomProperties: boolean,
 ): NonNullable<Parameters<typeof transform>[0]["visitor"]> {
+	if (!minifyCustomProperties) return {};
 	return {
 		Declaration: {
 			custom(property) {
@@ -223,7 +229,10 @@ async function getCssModuleResult(
 		minify: true,
 		targets: options.targets,
 		visitor: {
-			...createCssCustomPropertyVisitor(cssCustomPropertyNames),
+			...createCssCustomPropertyVisitor(
+				cssCustomPropertyNames,
+				options.minifyCustomProperties ?? true,
+			),
 			Rule: {
 				import(rule) {
 					imports.push(rule.value.url);
@@ -264,7 +273,10 @@ async function compileCSS(
 		include: Features.VendorPrefixes,
 		targets: options.targets,
 		visitor: {
-			...createCssCustomPropertyVisitor(cssCustomPropertyNames),
+			...createCssCustomPropertyVisitor(
+				cssCustomPropertyNames,
+				options.minifyCustomProperties ?? true,
+			),
 			Rule: {
 				import(rule) {
 					imports.push(rule.value.url);
