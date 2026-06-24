@@ -71,6 +71,7 @@ export async function buildUserscriptMinifiedBody(
 			unsafe_methods: true,
 			keep_fargs: false,
 			reduce_funcs: true,
+			drop_console: true,
 		},
 		mangle: {
 			toplevel: true,

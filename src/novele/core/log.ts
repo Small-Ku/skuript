@@ -1,9 +1,9 @@
+/** @dev-only */
 type ConsoleMethod = "debug" | "info" | "warn" | "error";
 
 type LoggerMethod = (message: string, ...args: unknown[]) => void;
 
 export type NoveleLogger = Record<ConsoleMethod, LoggerMethod>;
-
 function writeLog(
 	level: ConsoleMethod,
 	scope: string,
@@ -15,7 +15,6 @@ function writeLog(
 
 export function createNoveleLogger(scope: string): NoveleLogger {
 	return {
-		/** @dev-only */
 		debug(message, ...args) {
 			writeLog("debug", scope, message, args);
 		},
