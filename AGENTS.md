@@ -36,6 +36,12 @@ This repo uses TypeScript, TSX, and SCSS. Follow the existing style:
 - Delete orphaned modules and empty legacy folders once imports have moved. Do not keep dead paths around just to avoid a cleanup diff.
 - For site-support fixes, prefer additive selector or URL-normalization fallbacks. Preserve broad supported-host behavior unless the live DOM proves it wrong.
 
+The build pipeline (in `build.ts` and `bun_plugins/`) recognizes special TypeScript JSDoc annotations to optimize bundle size, safely mangle properties, or strip debug code:
+- `@dev-only` Strips dev-only modules, declarations, object properties, and unused imports/variables.
+- `@dense-enum-values <values>` Compresses string literal arrays in-place to minimize bundle size.
+- `@mangle-preserve` Prevents property name mangling (e.g., for JSON serialization/storage compatibility).
+- `@mangle-force` Forces mangling of `private` class properties that conflict with the DOM safelist by renaming them to `_mf_<name>`.
+
 ## Architecture Overview
 - Treat the Novele reader as one pipeline. Extraction changes often require matching updates in `src/novele/core/extract/`, `src/novele/core/queue.ts`, `src/novele/app/reader-data.ts`, and `src/novele/app/overlays.ts`.
 - A parser fix for one supported host can affect link discovery, page extraction, and the reader or overlay state that consumes the result.
