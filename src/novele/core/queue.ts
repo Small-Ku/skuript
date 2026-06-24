@@ -63,6 +63,7 @@ const fetchQueue = new JobQueue<FetchContext, QueueContext, unknown>(
 );
 
 fpsThrottle = new FpsConcurrencyController(fetchQueue, {
+	/** @dev-only */
 	onMonitoringChange(active) {
 		logger.info(
 			active
@@ -74,11 +75,12 @@ fpsThrottle = new FpsConcurrencyController(fetchQueue, {
 			},
 		);
 	},
+	/** @dev-only */
 	onConcurrencyChange({
 		previousConcurrency,
 		nextConcurrency,
 		averageFrameMs,
-		currentK
+		currentK,
 	}) {
 		logger.info("adjusted fetch queue concurrency", {
 			previousConcurrency,

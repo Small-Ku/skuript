@@ -15,6 +15,7 @@ function writeLog(
 
 export function createNoveleLogger(scope: string): NoveleLogger {
 	return {
+		/** @dev-only */
 		debug(message, ...args) {
 			writeLog("debug", scope, message, args);
 		},

@@ -9,6 +9,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import cssModuleNamedImports from "./bun_plugins/css-module-named-imports";
 import denseEnumValues from "./bun_plugins/dense-enum-values";
+import devOnlyMarker from "./bun_plugins/dev-only-marker";
 import styleLoader from "./bun_plugins/style-loader";
 import typeScriptSourceTransform from "./bun_plugins/typescript-source-transform";
 import {
@@ -211,6 +212,7 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 			entrypoints: [entrypoint],
 			outdir: "./dist",
 			naming: `${scriptName}.user.js`,
+			drop: dev ? undefined : ["console"],
 			minify: dev
 				? false
 				: {
@@ -222,6 +224,7 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 			plugins: [
 				typeScriptSourceTransform({
 					transforms: [
+						...(dev ? [] : [devOnlyMarker()]),
 						...(dev ? [] : [denseEnumValues({ logger })]),
 						...(dev ? [] : [mangleForcePropertiesSourceTransform()]),
 						cssModuleNamedImports(),
