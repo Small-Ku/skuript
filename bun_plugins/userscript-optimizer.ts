@@ -1,9 +1,10 @@
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { BunPlugin } from "bun";
-import { type MinifyOptions, minify } from "terser";
-import { Project, SyntaxKind } from "ts-morph";
+import type { BuildOutput, BunPlugin } from "bun";
+import { type ECMA, type MinifyOptions, minify } from "terser";
+import { Project, SyntaxKind, type TypeNode } from "ts-morph";
 import { getCssCustomPropertyRenameEntries } from "./style-loader";
+import type { TypeScriptSourceTransform } from "./typescript-source-transform";
 
 type UserscriptOptimizerPluginOptions = {
 	ecma: number;
@@ -16,6 +17,7 @@ const MIN_MANGLED_INTERNAL_PROPERTY_LENGTH = 6;
 const INTERNAL_PROPERTY_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const PROPERTY_MANGLE_PRESERVE_PATTERN =
 	/@(?:external|mangle-preserve|public)\b/;
+const PROPERTY_MANGLE_FORCE_PATTERN = /@mangle-force\b/;
 let terserDomPropertyNamesPromise: Promise<Set<string>> | undefined;
 
 function escapeRegex(value: string): string {
@@ -60,12 +62,12 @@ function hasPropertyManglePreserveAnnotation(node: {
 	return PROPERTY_MANGLE_PRESERVE_PATTERN.test(node.getFullText());
 }
 
+function hasPropertyMangleForceAnnotation(node: { getFullText: () => string }) {
+	return PROPERTY_MANGLE_FORCE_PATTERN.test(node.getFullText());
+}
+
 function collectPropertySignatureNames(
-	typeNode: {
-		getDescendantsOfKind: (
-			kind: SyntaxKind,
-		) => { getName: () => string; getFullText: () => string }[];
-	},
+	typeNode: TypeNode,
 	names: Set<string>,
 	reserved: Set<string>,
 ) {
@@ -105,11 +107,12 @@ function collectObjectLiteralPropertyNames(
 
 async function discoverInternalObjectPropertyNames(
 	scriptName: string,
-): Promise<{ names: string[]; reserved: string[] }> {
+): Promise<{ names: string[]; reserved: string[]; forced: string[] }> {
 	const project = new Project({ useInMemoryFileSystem: true });
 	const sourceRoots = [path.join("src", scriptName), path.join("src", "util")];
 	const names = new Set<string>();
 	const reserved = new Set<string>();
+	const forced = new Set<string>();
 
 	for (const sourceRoot of sourceRoots) {
 		for (const globPattern of ["**/*.ts", "**/*.tsx"]) {
@@ -167,6 +170,10 @@ async function discoverInternalObjectPropertyNames(
 						if (!property.getText().trimStart().startsWith("private ")) {
 							continue;
 						}
+						if (hasPropertyMangleForceAnnotation(property)) {
+							addPropertyName(forced, property.getName());
+							continue;
+						}
 						addPropertyName(names, property.getName());
 					}
 				}
@@ -195,13 +202,19 @@ async function discoverInternalObjectPropertyNames(
 
 	for (const name of reserved) {
 		names.delete(name);
+		forced.delete(name);
 	}
 
 	return {
 		names: Array.from(names).sort((a, b) => b.length - a.length),
 		reserved: Array.from(reserved).sort((a, b) => b.length - a.length),
+		forced: Array.from(forced).sort((a, b) => b.length - a.length),
 	};
 }
+
+type DiscoveredProperties = Awaited<
+	ReturnType<typeof discoverInternalObjectPropertyNames>
+>;
 
 function createPropertyMangleRegex(
 	internalObjectPropertyNames: string[],
@@ -229,6 +242,54 @@ function renameCssCustomProperties(code: string): string {
 	return result;
 }
 
+/**
+ * Scans a TypeScript source file for `private` class properties annotated with
+ * `@mangle-force` and renames them to `_mf_<name>` using ts-morph's language-
+ * service rename. This correctly targets only the class member declaration and
+ * its `this.name` accesses — it will not touch real DOM property accesses on
+ * other objects (e.g. `element.isActive`), unlike a regex approach which cannot
+ * distinguish receiver types.
+ *
+ * Because `private` members are only accessible within the declaring class, the
+ * rename is always self-contained to this file. No cross-file coordination or
+ * `defer()` is needed.
+ *
+ * Returns the modified source, or the original source unchanged if no forced
+ * properties were found.
+ */
+function renameMangleForcePropertiesInSource(source: string): string {
+	const project = new Project({ useInMemoryFileSystem: true });
+	const sourceFile = project.createSourceFile("source.ts", source);
+	let didRename = false;
+
+	for (const cls of sourceFile.getClasses()) {
+		for (const prop of cls.getProperties()) {
+			if (!prop.getText().trimStart().startsWith("private ")) continue;
+			if (!hasPropertyMangleForceAnnotation(prop)) continue;
+			const name = prop.getName();
+			if (!isManglableInternalPropertyName(name)) continue;
+			// Language-service rename: renames the declaration and every in-file
+			// reference (this.name accesses within the class body).
+			prop.rename(`_mf_${name}`);
+			didRename = true;
+		}
+	}
+
+	return didRename ? sourceFile.getFullText() : source;
+}
+
+export function mangleForcePropertiesSourceTransform(): TypeScriptSourceTransform {
+	return {
+		name: "mangle-force-properties",
+		transform({ source }) {
+			if (!PROPERTY_MANGLE_FORCE_PATTERN.test(source)) {
+				return source;
+			}
+			return renameMangleForcePropertiesInSource(source);
+		},
+	};
+}
+
 async function getTerserDomPropertyNames() {
 	terserDomPropertyNamesPromise ??= readFile(
 		path.join("node_modules", "terser", "tools", "domprops.js"),
@@ -244,14 +305,12 @@ async function getTerserDomPropertyNames() {
 }
 
 async function optimizeUserscriptCode(
-	options: Pick<
-		UserscriptOptimizerPluginOptions,
-		"ecma" | "scriptName" | "logger"
-	> & { body: string },
+	options: Pick<UserscriptOptimizerPluginOptions, "ecma" | "logger"> & {
+		body: string;
+		internalObjectProperties: DiscoveredProperties;
+	},
 ): Promise<string> {
-	const internalObjectProperties = await discoverInternalObjectPropertyNames(
-		options.scriptName,
-	);
+	const { internalObjectProperties } = options;
 	const terserDomPropertyNames = await getTerserDomPropertyNames();
 	const safelistCollisions = internalObjectProperties.names.filter((name) =>
 		terserDomPropertyNames.has(name),
@@ -261,8 +320,19 @@ async function optimizeUserscriptCode(
 			`Userscript property mangle skipped ${safelistCollisions.length} Terser DOM safelist collision(s): ${safelistCollisions.join(", ")}. Rename internal-only fields if you want them shortened in the compiled userscript.`,
 		);
 	}
+	const forcedMangleNames = internalObjectProperties.forced;
+	if (forcedMangleNames.length) {
+		const forcedCollisions = forcedMangleNames.filter((name) =>
+			terserDomPropertyNames.has(name),
+		);
+		if (forcedCollisions.length) {
+			options.logger.info(
+				`Userscript property mangle: renamed ${forcedCollisions.length} DOM safelist name(s) tagged @mangle-force in the TypeScript source transform pipeline: ${forcedCollisions.join(", ")}.`,
+			);
+		}
+	}
 	const minifyOptions: MinifyOptions = {
-		ecma: options.ecma,
+		ecma: options.ecma as ECMA,
 		compress: {
 			passes: 3,
 			unsafe: true,
@@ -284,16 +354,19 @@ async function optimizeUserscriptCode(
 			comments: false,
 		},
 	};
+	// @mangle-force properties are already renamed to _mf_* in the source by
+	// the onLoad handler. The _..* pattern in the mangle regex covers _mf_* automatically.
 	const minified = await minify(options.body, minifyOptions);
 	if (!minified.code) {
-		throw minified.error ?? new Error("Terser did not return minified code.");
+		throw new Error("Terser did not return minified code.");
 	}
 
 	return renameCssCustomProperties(minified.code);
 }
 
+/** @see https://bun.sh/docs/bundler/plugins — onEnd is documented but not yet in bun-types. */
 type PluginBuilderWithOnEnd = Parameters<NonNullable<BunPlugin["setup"]>>[0] & {
-	onEnd(callback: (result: Bun.BuildOutput) => void | Promise<void>): void;
+	onEnd(callback: (result: BuildOutput) => void | Promise<void>): void;
 };
 
 export default function userscriptOptimizer(
@@ -302,10 +375,18 @@ export default function userscriptOptimizer(
 	return {
 		name: "userscript-optimizer",
 		setup(build) {
+			// Discovery runs for the Terser mangle regex in onEnd.
+			// Start it eagerly so it overlaps with Bun's module graph resolution.
+			const discoveryPromise = discoverInternalObjectPropertyNames(
+				options.scriptName,
+			);
+
 			(build as PluginBuilderWithOnEnd).onEnd(async (result) => {
 				if (!result.success) {
 					return;
 				}
+
+				const internalObjectProperties = await discoveryPromise;
 
 				for (const output of result.outputs) {
 					if (output.kind !== "entry-point") {
@@ -317,7 +398,7 @@ export default function userscriptOptimizer(
 						body: source,
 						ecma: options.ecma,
 						logger: options.logger,
-						scriptName: options.scriptName,
+						internalObjectProperties,
 					});
 					const optimized = `${options.headerText}${optimizedBody}`;
 					await writeFile(output.path, optimized);

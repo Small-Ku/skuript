@@ -57,6 +57,7 @@ export class JobQueue<
 	// Operational State
 	private queue: Job<TJobContext, TResult>[] = [];
 	private executing = new Set<Promise<void>>();
+	/** @mangle-force Not a DOM property — internal queue activity flag. */
 	private isActive = false;
 
 	// State flags for deferred processing

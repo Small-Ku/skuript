@@ -11,7 +11,10 @@ import cssModuleNamedImports from "./bun_plugins/css-module-named-imports";
 import denseEnumValues from "./bun_plugins/dense-enum-values";
 import styleLoader from "./bun_plugins/style-loader";
 import typeScriptSourceTransform from "./bun_plugins/typescript-source-transform";
-import userscriptOptimizer from "./bun_plugins/userscript-optimizer";
+import {
+	mangleForcePropertiesSourceTransform,
+	default as userscriptOptimizer,
+} from "./bun_plugins/userscript-optimizer";
 
 const consoleTransport = new winston.transports.Console();
 const logger = winston.createLogger({
@@ -220,6 +223,7 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 				typeScriptSourceTransform({
 					transforms: [
 						...(dev ? [] : [denseEnumValues({ logger })]),
+						...(dev ? [] : [mangleForcePropertiesSourceTransform()]),
 						cssModuleNamedImports(),
 					],
 				}),
