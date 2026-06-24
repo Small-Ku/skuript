@@ -58,7 +58,7 @@ const fetchQueue = new JobQueue<FetchContext, QueueContext, unknown>(
 		return distance;
 	},
 	{ currentOrderHint: 0 },
-	3,
+	32,
 	{ onActiveChange: (active) => fpsThrottle.onActiveChange(active) },
 );
 
@@ -78,10 +78,12 @@ fpsThrottle = new FpsConcurrencyController(fetchQueue, {
 		previousConcurrency,
 		nextConcurrency,
 		averageFrameMs,
+		currentK
 	}) {
 		logger.info("adjusted fetch queue concurrency", {
 			previousConcurrency,
 			nextConcurrency,
+			currentK: Number(currentK.toFixed(6)),
 			averageFrameMs: Number(averageFrameMs.toFixed(2)),
 			queueSize: fetchQueue.getQueueSize(),
 			runningJobs: fetchQueue.getRunningJobsCount(),

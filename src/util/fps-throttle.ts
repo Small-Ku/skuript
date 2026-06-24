@@ -11,21 +11,22 @@ export interface FpsThrottleOptions {
 	minConcurrency?: number;
 	/**
 	 * The maximum number of concurrent jobs to allow.
-	 * @default 3
+	 * @default 128
 	 */
 	maxConcurrency?: number;
 	/**
-	 * Frame duration threshold (ms) below which concurrency is increased.
-	 * Corresponds to ~55 FPS.
-	 * @default 18
+	 * Target frame duration (ms) that the controller tries to maintain.
+	 * Lower averages increase concurrency; higher averages reduce it.
+	 * Corresponds to ~50 FPS by default.
+	 * @default 20
 	 */
-	fastFrameMs?: number;
+	targetFrameMs?: number;
 	/**
-	 * Frame duration threshold (ms) above which concurrency is decreased.
-	 * Corresponds to ~45 FPS.
-	 * @default 22
+	 * Sensitivity factor for the cubic concurrency adjustment curve.
+	 * Larger values react more aggressively to frame-time drift.
+	 * @default 0.005
 	 */
-	slowFrameMs?: number;
+	sensitivity?: number;
 	/**
 	 * Minimum interval between concurrency adjustments (ms).
 	 * Prevents thrashing when frame rate is noisy.
@@ -48,6 +49,7 @@ export interface FpsThrottleOptions {
 		previousConcurrency: number;
 		nextConcurrency: number;
 		averageFrameMs: number;
+		currentK: number;
 	}) => void;
 }
 
@@ -68,8 +70,8 @@ export class FpsConcurrencyController<
 	private readonly queue: JobQueue<TJobContext, TContext, TResult>;
 	private readonly minConcurrency: number;
 	private readonly maxConcurrency: number;
-	private readonly fastFrameMs: number;
-	private readonly slowFrameMs: number;
+	private readonly targetFrameMs: number;
+	private readonly baseSensitivity: number;
 	private readonly adjustIntervalMs: number;
 	private readonly windowSize: number;
 	private readonly onMonitoringChange?: (active: boolean) => void;
@@ -77,6 +79,7 @@ export class FpsConcurrencyController<
 		previousConcurrency: number;
 		nextConcurrency: number;
 		averageFrameMs: number;
+		currentK: number;
 	}) => void;
 
 	private rafId: number | null = null;
@@ -84,6 +87,8 @@ export class FpsConcurrencyController<
 	private lastAdjustTime = 0;
 	private readonly frameDurations: number[] = [];
 	private currentConcurrency: number;
+	private currentK: number;
+	private lastDeltaSign = 0;
 
 	constructor(
 		queue: JobQueue<TJobContext, TContext, TResult>,
@@ -91,9 +96,9 @@ export class FpsConcurrencyController<
 	) {
 		const {
 			minConcurrency = 1,
-			maxConcurrency = 3,
-			fastFrameMs = 18,
-			slowFrameMs = 22,
+			maxConcurrency = 128,
+			targetFrameMs = 20,
+			sensitivity = 0.005,
 			adjustIntervalMs = 250,
 			windowSize = 10,
 			onMonitoringChange,
@@ -103,11 +108,12 @@ export class FpsConcurrencyController<
 		this.queue = queue;
 		this.minConcurrency = minConcurrency;
 		this.maxConcurrency = maxConcurrency;
-		this.fastFrameMs = fastFrameMs;
-		this.slowFrameMs = slowFrameMs;
+		this.targetFrameMs = targetFrameMs;
+		this.baseSensitivity = sensitivity;
 		this.adjustIntervalMs = adjustIntervalMs;
 		this.windowSize = windowSize;
-		this.currentConcurrency = maxConcurrency;
+		this.currentConcurrency = minConcurrency;
+		this.currentK = sensitivity;
 		this.onMonitoringChange = onMonitoringChange;
 		this.onConcurrencyChange = onConcurrencyChange;
 	}
@@ -131,6 +137,8 @@ export class FpsConcurrencyController<
 		this.lastTimestamp = null;
 		this.frameDurations.length = 0;
 		this.lastAdjustTime = 0;
+		this.currentK = this.baseSensitivity;
+		this.lastDeltaSign = 0;
 		this.rafId = requestAnimationFrame(this._loop);
 		this.onMonitoringChange?.(true);
 	}
@@ -160,7 +168,7 @@ export class FpsConcurrencyController<
 
 		// Adjust concurrency on the configured interval
 		if (
-			this.frameDurations.length >= 3 &&
+			this.frameDurations.length > 0 &&
 			timestamp - this.lastAdjustTime >= this.adjustIntervalMs
 		) {
 			this._adjustConcurrency();
@@ -171,17 +179,41 @@ export class FpsConcurrencyController<
 	};
 
 	private _adjustConcurrency(): void {
+		if (this.frameDurations.length === 0) return;
+
 		const avg =
 			this.frameDurations.reduce((sum, d) => sum + d, 0) /
 			this.frameDurations.length;
+		const delta = Math.round(this.currentK * (this.targetFrameMs - avg) ** 3);
 
-		let next = this.currentConcurrency;
-
-		if (avg < this.fastFrameMs && next < this.maxConcurrency) {
-			next += 1;
-		} else if (avg > this.slowFrameMs && next > this.minConcurrency) {
-			next -= 1;
+		if (delta !== 0) {
+			const currentDeltaSign = Math.sign(delta);
+			if (this.lastDeltaSign !== 0) {
+				if (currentDeltaSign !== this.lastDeltaSign) {
+					this.currentK = Math.max(
+						this.baseSensitivity * 0.2,
+						this.currentK * 0.5,
+					);
+				} else {
+					this.currentK = Math.min(
+						this.baseSensitivity * 5,
+						this.currentK * 1.2,
+					);
+				}
+			}
+			this.lastDeltaSign = currentDeltaSign;
+		} else {
+			this.currentK =
+				this.currentK + (this.baseSensitivity - this.currentK) * 0.1;
+			this.lastDeltaSign = 0;
 		}
+
+		if (delta === 0) return;
+
+		const next = Math.max(
+			this.minConcurrency,
+			Math.min(this.maxConcurrency, this.currentConcurrency + delta),
+		);
 
 		if (next !== this.currentConcurrency) {
 			const previousConcurrency = this.currentConcurrency;
@@ -190,6 +222,7 @@ export class FpsConcurrencyController<
 				previousConcurrency,
 				nextConcurrency: next,
 				averageFrameMs: avg,
+				currentK: this.currentK,
 			});
 			this.queue.updateConcurrency(next);
 		}
