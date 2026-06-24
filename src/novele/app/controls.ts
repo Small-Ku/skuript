@@ -6,6 +6,7 @@ import {
 	IconToc,
 	IconTune,
 } from "../../style/icon";
+import { debounceRaf } from "../../util/batch";
 import type { createReaderData } from "./reader-data";
 import type { createUiState } from "./state";
 import nameMap from "./styles/style.module.scss";
@@ -94,7 +95,6 @@ export function BottomControls(
 ) {
 	const useCompactLayout = van.state(false);
 	let desktopSizerElement: HTMLDivElement | undefined;
-	let layoutRaf: number | undefined;
 
 	const toggleOverlay = (name: "chapters" | "comments" | "settings") => {
 		ui.activeOverlay.val = ui.activeOverlay.val === name ? null : name;
@@ -223,15 +223,7 @@ export function BottomControls(
 		useCompactLayout.val = requiredWidth > availableWidth;
 	};
 
-	const scheduleLayoutModeUpdate = () => {
-		if (layoutRaf !== undefined) {
-			cancelAnimationFrame(layoutRaf);
-		}
-		layoutRaf = requestAnimationFrame(() => {
-			layoutRaf = undefined;
-			updateLayoutMode();
-		});
-	};
+	const scheduleLayoutModeUpdate = debounceRaf(updateLayoutMode);
 
 	van.derive(() => {
 		data.currentCommentsAvailable.val;

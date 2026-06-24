@@ -1,4 +1,5 @@
 import van from "vanjs-core";
+import { batchRaf, createFrameCoalescer } from "../../util/batch";
 import {
 	CLOUDFLARE_CHALLENGE_MESSAGE,
 	type CommentPostResult,
@@ -22,7 +23,7 @@ type ChapterFetchState = {
 	error?: string;
 };
 
-type ChapterEntry = {
+export type ChapterEntry = {
 	url: string;
 	title: string;
 	linkIndex: number;
@@ -111,12 +112,6 @@ export function createReaderData() {
 	let commentRequestKey = "";
 	const prefetchedCommentKeys = new Set<string>();
 
-	const updateFetchState = (url: string, state: ChapterFetchState) => {
-		const next = new Map(fetchStates.val);
-		next.set(url, state);
-		fetchStates.val = next;
-	};
-
 	const queueCatalog = (nextLinks: Link[]) => {
 		if (catalogQueued || !nextLinks.length) return;
 		catalogQueued = true;
@@ -125,12 +120,21 @@ export function createReaderData() {
 			nextFetchStates.set(link.url, { isLoading: true });
 		});
 		fetchStates.val = nextFetchStates;
+
+		const batchUpdate = batchRaf<[string, ChapterFetchState]>((updates) => {
+			const next = new Map(fetchStates.val);
+			for (const [url, state] of updates) {
+				next.set(url, state);
+			}
+			fetchStates.val = next;
+		});
+
 		void queueCatalogFetch(nextLinks, (link, _index, error) => {
 			const message = error instanceof Error ? error.message : `${error}`;
-			updateFetchState(
+			batchUpdate([
 				link.url,
 				error ? { isLoading: false, error: message } : { isLoading: false },
-			);
+			]);
 		});
 	};
 
@@ -161,12 +165,19 @@ export function createReaderData() {
 			needsCloudflareVerification: false,
 			waitingForCloudflareVerification: false,
 		};
+
+		const updateCommentsState = createFrameCoalescer<CommentViewState>(
+			() => currentComments.val,
+			(nextState) => {
+				currentComments.val = nextState;
+			},
+		);
+
 		void queueCommentFetch(refs, orderHint, (_ref, error, bundle) => {
 			if (error)
 				errors.push(error instanceof Error ? error.message : `${error}`);
 			if (!bundle || key !== commentRequestKey) return;
-			currentComments.val = {
-				...currentComments.val,
+			updateCommentsState({
 				isLoading: true,
 				commentingAvailable: bundle.commentingAvailable,
 				refs,
@@ -174,20 +185,23 @@ export function createReaderData() {
 				postId: bundle.postId,
 				error: errors[0],
 				waitingForCloudflareVerification: false,
-			};
+			});
 		}).then((bundle) => {
 			if (key !== commentRequestKey) return;
-			currentComments.val = {
-				isLoading: false,
-				posting: false,
-				commentingAvailable: bundle.commentingAvailable,
-				refs,
-				items: bundle.items,
-				postId: bundle.postId,
-				error: errors[0],
-				needsCloudflareVerification: false,
-				waitingForCloudflareVerification: false,
-			};
+			updateCommentsState(
+				{
+					isLoading: false,
+					posting: false,
+					commentingAvailable: bundle.commentingAvailable,
+					refs,
+					items: bundle.items,
+					postId: bundle.postId,
+					error: errors[0],
+					needsCloudflareVerification: false,
+					waitingForCloudflareVerification: false,
+				},
+				true,
+			);
 		});
 	};
 

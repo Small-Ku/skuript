@@ -1,5 +1,9 @@
 import van from "vanjs-core";
 import {
+	createIncrementalRenderer,
+	renderProgressively,
+} from "../../util/batch";
+import {
 	COMMENT_FRAME_BRIDGE_CALLBACK_NAME,
 	type CommentFrameBridgeMessage,
 	isCommentFrameBridgeMessage,
@@ -463,53 +467,83 @@ export function CommentsPanel(
 		if (ui.replyingToCommentId.val && !replyingToComment) {
 			ui.replyingToCommentId.val = null;
 		}
-		const status = commentStatusText(data);
-		if (status) {
-			commentsRoot.replaceChildren(
-				div(
-					{ class: nameMap.commentItem },
-					div(
-						{ class: nameMap.commentMeta },
-						span({ class: nameMap.user }, "Site comments"),
-						span({ class: nameMap.time }, state.isLoading ? "Loading" : "Idle"),
-					),
-					p({ class: nameMap.commentText }, status),
-				),
-			);
-			return;
-		}
+	});
 
-		const commentTree = buildCommentTree(state.items);
-		commentsRoot.replaceChildren(
-			...(state.isLoading
-				? [
+	const renderComments =
+		createIncrementalRenderer<
+			[typeof data.currentComments.val.items, boolean]
+		>();
+
+	van.derive(() => {
+		const activeOverlay = ui.activeOverlay.val;
+		const state = data.currentComments.val;
+		const items = state.items;
+		const isLoading = state.isLoading;
+
+		if (activeOverlay === "comments") {
+			renderComments([items, isLoading], async ({ isAborted }) => {
+				commentsRoot.replaceChildren();
+
+				const status = commentStatusText(data);
+				if (status) {
+					commentsRoot.replaceChildren(
 						div(
 							{ class: nameMap.commentItem },
 							div(
 								{ class: nameMap.commentMeta },
 								span({ class: nameMap.user }, "Site comments"),
-								span({ class: nameMap.time }, "Loading"),
+								span({ class: nameMap.time }, isLoading ? "Loading" : "Idle"),
 							),
-							p(
-								{ class: nameMap.commentText },
-								`Loading ${state.refs.length} comment page(s)...`,
-							),
+							p({ class: nameMap.commentText }, status),
 						),
-					]
-				: []),
-			...commentTree.map((comment) => renderCommentNode(comment)),
-		);
-		if (pendingScrollCommentId) {
-			const target = commentsRoot.querySelector<HTMLElement>(
-				pendingScrollCommentId,
-			);
-			if (target) {
-				target.scrollIntoView({
-					behavior: "smooth",
-					block: "center",
-				});
-				pendingScrollCommentId = null;
-			}
+					);
+					return;
+				}
+
+				const commentTree = buildCommentTree(items);
+
+				const loadingNodes = isLoading
+					? [
+							div(
+								{ class: nameMap.commentItem },
+								div(
+									{ class: nameMap.commentMeta },
+									span({ class: nameMap.user }, "Site comments"),
+									span({ class: nameMap.time }, "Loading"),
+								),
+								p(
+									{ class: nameMap.commentText },
+									`Loading ${state.refs.length} comment page(s)...`,
+								),
+							),
+						]
+					: [];
+
+				await renderProgressively(
+					commentsRoot,
+					commentTree,
+					(comment) => renderCommentNode(comment),
+					{
+						chunkSize: 20,
+						initialNodes: loadingNodes,
+						isAborted,
+						onChunkAppended: () => {
+							if (pendingScrollCommentId) {
+								const target = commentsRoot.querySelector<HTMLElement>(
+									pendingScrollCommentId,
+								);
+								if (target) {
+									target.scrollIntoView({
+										behavior: "smooth",
+										block: "center",
+									});
+									pendingScrollCommentId = null;
+								}
+							}
+						},
+					},
+				);
+			});
 		}
 	});
 
