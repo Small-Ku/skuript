@@ -3,6 +3,7 @@ import {
 	ZHENHUN_COMMENT_POST_URL,
 } from "./extract/comments";
 import { hostname } from "./extract/hostname-map";
+import { createNoveleLogger } from "./log";
 
 export const COMMENT_FRAME_BRIDGE_MESSAGE_TYPE =
 	"novele:comment-frame-update" as const;
@@ -23,6 +24,8 @@ export type CommentFrameBridgeReceiver = (
 type ParentWindowWithCommentBridge = Window & {
 	[COMMENT_FRAME_BRIDGE_CALLBACK_NAME]?: CommentFrameBridgeReceiver;
 };
+
+const logger = createNoveleLogger("comment-bridge");
 
 export function isCommentFrameBridgeMessage(
 	data: unknown,
@@ -53,6 +56,10 @@ export function installCommentFrameBridge() {
 		window.parent === window ||
 		hostname !== "www.zhenhunxiaoshuo.com"
 	) {
+		logger.debug("skipped iframe bridge install", {
+			href: window.location.href,
+			hostname,
+		});
 		return false;
 	}
 
@@ -65,12 +72,20 @@ export function installCommentFrameBridge() {
 			const parentWindow = window.parent as ParentWindowWithCommentBridge;
 			const directReceiver = parentWindow[COMMENT_FRAME_BRIDGE_CALLBACK_NAME];
 			if (typeof directReceiver === "function") {
+				logger.debug("sent iframe bridge update through direct receiver", {
+					href: message.href,
+					isCloudflareChallenge: message.isCloudflareChallenge,
+				});
 				directReceiver(message);
 				return;
 			}
+			logger.debug("sent iframe bridge update through postMessage", {
+				href: message.href,
+				isCloudflareChallenge: message.isCloudflareChallenge,
+			});
 			window.parent.postMessage(message, window.location.origin);
 		} catch (error) {
-			console.debug("[novele] comment iframe bridge postMessage failed", error);
+			logger.debug("comment iframe bridge postMessage failed", error);
 		}
 	};
 
@@ -101,5 +116,8 @@ export function installCommentFrameBridge() {
 		scheduleUpdate();
 	}
 
+	logger.info("installed iframe comment bridge observers", {
+		href: window.location.href,
+	});
 	return true;
 }

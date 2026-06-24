@@ -7,6 +7,7 @@ import {
 import { type Link, resolveLinks, subscribeLinks } from "../core/extract/links";
 import { findPage } from "../core/extract/pages";
 import type { CommentItem, CommentPageRef } from "../core/extract/storage";
+import { createNoveleLogger } from "../core/log";
 import { nav } from "../core/nav";
 import {
 	readSessionChapterProgress,
@@ -53,6 +54,7 @@ type PreparedCommentSubmission = {
 export type NavigationMode = "initial" | "previous" | "next" | "jump";
 
 const COMMENT_PREFETCH_RADIUS = 1;
+const logger = createNoveleLogger("reader-data");
 
 function normalizeReaderUrl(url: string) {
 	const parsed = new URL(url);
@@ -115,6 +117,9 @@ export function createReaderData() {
 	const queueCatalog = (nextLinks: Link[]) => {
 		if (catalogQueued || !nextLinks.length) return;
 		catalogQueued = true;
+		logger.info("queueing catalog fetch", {
+			linkCount: nextLinks.length,
+		});
 		const nextFetchStates = new Map(fetchStates.val);
 		nextLinks.forEach((link) => {
 			nextFetchStates.set(link.url, { isLoading: true });
@@ -131,6 +136,12 @@ export function createReaderData() {
 
 		void queueCatalogFetch(nextLinks, (link, _index, error) => {
 			const message = error instanceof Error ? error.message : `${error}`;
+			if (error) {
+				logger.warn("catalog fetch entry failed", {
+					url: link.url,
+					message,
+				});
+			}
 			batchUpdate([
 				link.url,
 				error ? { isLoading: false, error: message } : { isLoading: false },
@@ -143,6 +154,9 @@ export function createReaderData() {
 		if (key === commentRequestKey) return;
 		commentRequestKey = key;
 		if (!refs.length) {
+			logger.debug("cleared current comments because no refs were available", {
+				orderHint,
+			});
 			currentComments.val = {
 				isLoading: false,
 				posting: false,
@@ -156,6 +170,10 @@ export function createReaderData() {
 		}
 
 		const errors: string[] = [];
+		logger.info("loading current comments", {
+			refCount: refs.length,
+			orderHint,
+		});
 		currentComments.val = {
 			isLoading: true,
 			posting: false,
@@ -174,8 +192,14 @@ export function createReaderData() {
 		);
 
 		void queueCommentFetch(refs, orderHint, (_ref, error, bundle) => {
-			if (error)
+			if (error) {
+				logger.warn("comment page fetch failed", {
+					url: _ref.url,
+					pageNumber: _ref.pageNumber,
+					message: error instanceof Error ? error.message : `${error}`,
+				});
 				errors.push(error instanceof Error ? error.message : `${error}`);
+			}
 			if (!bundle || key !== commentRequestKey) return;
 			updateCommentsState({
 				isLoading: true,
@@ -188,6 +212,11 @@ export function createReaderData() {
 			});
 		}).then((bundle) => {
 			if (key !== commentRequestKey) return;
+			logger.info("loaded current comments", {
+				refCount: refs.length,
+				itemCount: bundle.items.length,
+				commentingAvailable: bundle.commentingAvailable,
+			});
 			updateCommentsState(
 				{
 					isLoading: false,
@@ -210,6 +239,10 @@ export function createReaderData() {
 		const key = refs.map((ref) => ref.url).join("\n");
 		if (prefetchedCommentKeys.has(key)) return;
 		prefetchedCommentKeys.add(key);
+		logger.debug("prefetching nearby comments", {
+			refCount: refs.length,
+			orderHint,
+		});
 		void queueCommentFetch(refs, orderHint);
 	};
 
@@ -230,6 +263,12 @@ export function createReaderData() {
 		} else if (currentPageIndex >= 0) {
 			nav.index.val = currentPageIndex;
 		}
+		logger.info("resolved chapter links", {
+			linkCount: nextLinks.length,
+			storedIndex,
+			currentPageIndex,
+			selectedIndex: nav.index.val,
+		});
 		if (nav.index.val > nav.max.val) {
 			nav.index.val = nav.max.val;
 		}
@@ -243,9 +282,16 @@ export function createReaderData() {
 	const start = () => {
 		if (started) return;
 		started = true;
+		logger.info("starting reader data pipeline", {
+			initialLinkCount: links.val.length,
+			href: window.location.href,
+		});
 		queueCatalog(links.val);
 		void resolveLinks(document).catch((error) => {
 			globalError.val = error instanceof Error ? error.message : `${error}`;
+			logger.error("failed to resolve chapter links", {
+				message: globalError.val,
+			});
 			throw error;
 		});
 	};
@@ -305,6 +351,10 @@ export function createReaderData() {
 	const loadCurrentComments = () => {
 		fetchStates.val;
 		const link = currentLink.val;
+		logger.debug("requested current comments load", {
+			currentIndex: nav.index.val,
+			url: link?.url,
+		});
 		if (!link) {
 			queueComments([], nav.index.val);
 			return;
@@ -325,10 +375,21 @@ export function createReaderData() {
 			!commentText ||
 			state.posting
 		) {
+			logger.debug("skipped comment submission preparation", {
+				commentingAvailable: state.commentingAvailable,
+				hasPostId: Boolean(state.postId),
+				hasCommentText: Boolean(commentText),
+				posting: state.posting,
+			});
 			return null;
 		}
 
 		const normalizedAuthor = author.trim() || "匿名";
+		logger.info("prepared comment submission", {
+			refCount: state.refs.length,
+			replyingToCommentId: parentId,
+			authorProvided: Boolean(author.trim()),
+		});
 		currentComments.val = {
 			...state,
 			posting: true,
@@ -344,6 +405,11 @@ export function createReaderData() {
 		};
 	};
 	const completeCurrentCommentSubmission = (bundle: CommentPostResult) => {
+		logger.info("completed comment submission", {
+			refCount: bundle.refs.length,
+			itemCount: bundle.items.length,
+			commentingAvailable: bundle.commentingAvailable,
+		});
 		currentComments.val = {
 			isLoading: false,
 			posting: false,
@@ -362,6 +428,13 @@ export function createReaderData() {
 		const message = error instanceof Error ? error.message : `${error}`;
 		const needsCloudflareVerification =
 			message === CLOUDFLARE_CHALLENGE_MESSAGE;
+		logger.warn("failed comment submission", {
+			message,
+			needsCloudflareVerification,
+			waitingForCloudflareVerification: Boolean(
+				options?.waitingForCloudflareVerification,
+			),
+		});
 		currentComments.val = {
 			...currentComments.val,
 			posting: false,
@@ -414,6 +487,11 @@ export function createReaderData() {
 		if (!links.val.length) return;
 		const nextIndex = Math.max(nav.min.val, Math.min(nav.max.val, index));
 		if (nextIndex === nav.index.val) return;
+		logger.info("navigating reader", {
+			fromIndex: nav.index.val,
+			toIndex: nextIndex,
+			mode,
+		});
 		navMode.val = mode;
 		nav.index.val = nextIndex;
 	};

@@ -24,6 +24,7 @@ import {
 	setAdditionalPageUrls,
 } from "./extract/pages";
 import type { CommentPageRef } from "./extract/storage";
+import { createNoveleLogger } from "./log";
 
 interface FetchContext {
 	kind: "page" | "comment" | "comment-post";
@@ -39,6 +40,7 @@ interface QueueContext {
 // fpsThrottle is assigned immediately after fetchQueue; the onActiveChange closure
 // is only ever invoked after addJob(), which occurs after module init completes.
 let fpsThrottle: FpsConcurrencyController<FetchContext, QueueContext, unknown>;
+const logger = createNoveleLogger("queue");
 
 const fetchQueue = new JobQueue<FetchContext, QueueContext, unknown>(
 	(jobContext, context) => {
@@ -60,7 +62,32 @@ const fetchQueue = new JobQueue<FetchContext, QueueContext, unknown>(
 	{ onActiveChange: (active) => fpsThrottle.onActiveChange(active) },
 );
 
-fpsThrottle = new FpsConcurrencyController(fetchQueue);
+fpsThrottle = new FpsConcurrencyController(fetchQueue, {
+	onMonitoringChange(active) {
+		logger.info(
+			active
+				? "started FPS concurrency monitoring"
+				: "stopped FPS concurrency monitoring",
+			{
+				queueSize: fetchQueue.getQueueSize(),
+				runningJobs: fetchQueue.getRunningJobsCount(),
+			},
+		);
+	},
+	onConcurrencyChange({
+		previousConcurrency,
+		nextConcurrency,
+		averageFrameMs,
+	}) {
+		logger.info("adjusted fetch queue concurrency", {
+			previousConcurrency,
+			nextConcurrency,
+			averageFrameMs: Number(averageFrameMs.toFixed(2)),
+			queueSize: fetchQueue.getQueueSize(),
+			runningJobs: fetchQueue.getRunningJobsCount(),
+		});
+	},
+});
 
 const inFlightFetches = new Map<string, Promise<void>>();
 const CHAPTER_LOOKAHEAD = 6;
@@ -69,6 +96,11 @@ async function waitForRetryAfter(response: Response) {
 	const retryAfter = response.headers.get("retry-after");
 	const seconds = Number(retryAfter);
 	const delay = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 1000;
+	logger.warn("fetch hit HTTP 429, waiting before retry", {
+		url: response.url,
+		retryAfter,
+		delayMs: delay,
+	});
 	await new Promise((resolve) => setTimeout(resolve, delay));
 }
 
@@ -94,24 +126,40 @@ async function fetchPageText(
 		const storedPage = peekPage(url);
 		const storedRaw = storedPage?.raw ?? storedPage?.persistedRaw;
 		if (storedRaw) {
-			console.debug(`Using cached raw page: ${url}`);
+			logger.debug("using cached raw page", { url });
 			return storedRaw;
 		}
 		const hydratedPage = await hydratePage(url);
 		const hydratedRaw = hydratedPage?.raw ?? hydratedPage?.persistedRaw;
 		if (hydratedRaw) {
-			console.debug(`Using IndexedDB page: ${url}`);
+			logger.debug("using IndexedDB page", { url });
 			return hydratedRaw;
 		}
 	}
 	for (;;) {
+		logger.debug("fetching page text", {
+			url,
+			fetchUrl,
+			bypassCache,
+		});
 		const response = await fetchWith429Retry(
 			fetchUrl,
 			bypassCache ? { cache: "no-store" } : { cache: "force-cache" },
 		);
 		if (!response.ok) {
+			logger.error("page fetch failed", {
+				url,
+				fetchUrl,
+				status: response.status,
+				statusText: response.statusText,
+			});
 			throw new Error("ERROR", { cause: response });
 		}
+		logger.debug("fetched page text", {
+			url,
+			fetchUrl,
+			status: response.status,
+		});
 		return response.text();
 	}
 }
@@ -119,11 +167,17 @@ async function fetchPageText(
 async function performQueueFetch(ctx: FetchContext): Promise<void> {
 	const isCommentPost = ctx.kind === "comment-post";
 	try {
+		logger.debug("starting queued fetch", ctx);
 		if (!isCommentPost && canUseCurrentDocument(ctx.url)) {
+			logger.debug("using current document for queued fetch", {
+				url: ctx.url,
+				kind: ctx.kind,
+			});
 			registerCurrentPage(ctx.url);
 			return;
 		}
 		registerPageRaw(ctx.url, await fetchPageText(ctx.url, isCommentPost));
+		logger.debug("stored queued fetch result", ctx);
 	} finally {
 		inFlightFetches.delete(ctx.url);
 	}
@@ -143,13 +197,26 @@ async function queueFetch(
 	}
 
 	const existing = inFlightFetches.get(url);
-	if (existing) return existing;
+	if (existing) {
+		logger.debug("reusing in-flight fetch", {
+			url,
+			kind: context.kind,
+		});
+		return existing;
+	}
 
 	const promise = fetchQueue.addJob(performQueueFetch, {
 		...context,
 		url,
 		orderHint,
 	}) as Promise<void>;
+	logger.debug("queued fetch", {
+		url,
+		orderHint,
+		requireDocument,
+		kind: context.kind,
+		pageNumber: context.pageNumber,
+	});
 	inFlightFetches.set(url, promise);
 	return promise;
 }
@@ -175,6 +242,7 @@ async function ensureLinkParsed(link: Link, index: number): Promise<void> {
 }
 
 export async function updateCurrentPage(index: number) {
+	logger.debug("updated queue context for current page", { index });
 	await fetchQueue.setContext({ currentOrderHint: index });
 }
 
@@ -198,6 +266,10 @@ export async function queueCommentFetch(
 		bundle?: CommentBundle,
 	) => void,
 ): Promise<CommentBundle> {
+	logger.info("queueing comment fetch", {
+		refCount: refs.length,
+		orderHint,
+	});
 	await Promise.allSettled(
 		refs.map((ref) =>
 			fetchDocument(ref.url, orderHint + ref.pageNumber / 100, {
@@ -216,6 +288,9 @@ export async function queueCommentFetch(
 				}),
 		),
 	);
+	logger.info("completed comment fetch", {
+		refCount: refs.length,
+	});
 	return getCachedCommentBundle(refs);
 }
 

@@ -2,12 +2,14 @@ import van from "vanjs-core";
 import { FabApp } from "./app/main";
 import { code } from "./app/styles/style.module.scss";
 import { installCommentFrameBridge } from "./core/comment-frame-bridge";
+import { createNoveleLogger } from "./core/log";
 
 const { div, style } = van.tags;
+const logger = createNoveleLogger("bootstrap");
 
 if (window.top !== window.self) {
 	installCommentFrameBridge();
-	console.debug("[novele] installed iframe comment bridge", {
+	logger.debug("installed iframe comment bridge", {
 		href: window.location.href,
 	});
 } else {
@@ -25,4 +27,7 @@ if (window.top !== window.self) {
 
 	const root = attachShadow(document.body, code);
 	root.appendChild(FabApp());
+	logger.info("mounted reader app", {
+		href: window.location.href,
+	});
 }

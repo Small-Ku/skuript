@@ -37,6 +37,18 @@ export interface FpsThrottleOptions {
 	 * @default 10
 	 */
 	windowSize?: number;
+	/**
+	 * Optional callback fired when monitoring starts or stops.
+	 */
+	onMonitoringChange?: (active: boolean) => void;
+	/**
+	 * Optional callback fired when concurrency changes.
+	 */
+	onConcurrencyChange?: (info: {
+		previousConcurrency: number;
+		nextConcurrency: number;
+		averageFrameMs: number;
+	}) => void;
 }
 
 /**
@@ -60,6 +72,12 @@ export class FpsConcurrencyController<
 	private readonly slowFrameMs: number;
 	private readonly adjustIntervalMs: number;
 	private readonly windowSize: number;
+	private readonly onMonitoringChange?: (active: boolean) => void;
+	private readonly onConcurrencyChange?: (info: {
+		previousConcurrency: number;
+		nextConcurrency: number;
+		averageFrameMs: number;
+	}) => void;
 
 	private rafId: number | null = null;
 	private lastTimestamp: number | null = null;
@@ -78,6 +96,8 @@ export class FpsConcurrencyController<
 			slowFrameMs = 22,
 			adjustIntervalMs = 250,
 			windowSize = 10,
+			onMonitoringChange,
+			onConcurrencyChange,
 		} = options;
 
 		this.queue = queue;
@@ -88,6 +108,8 @@ export class FpsConcurrencyController<
 		this.adjustIntervalMs = adjustIntervalMs;
 		this.windowSize = windowSize;
 		this.currentConcurrency = maxConcurrency;
+		this.onMonitoringChange = onMonitoringChange;
+		this.onConcurrencyChange = onConcurrencyChange;
 	}
 
 	/**
@@ -110,6 +132,7 @@ export class FpsConcurrencyController<
 		this.frameDurations.length = 0;
 		this.lastAdjustTime = 0;
 		this.rafId = requestAnimationFrame(this._loop);
+		this.onMonitoringChange?.(true);
 	}
 
 	private _stopMonitoring(): void {
@@ -118,6 +141,7 @@ export class FpsConcurrencyController<
 			this.rafId = null;
 		}
 		this.lastTimestamp = null;
+		this.onMonitoringChange?.(false);
 	}
 
 	private readonly _loop = (timestamp: number): void => {
@@ -160,7 +184,13 @@ export class FpsConcurrencyController<
 		}
 
 		if (next !== this.currentConcurrency) {
+			const previousConcurrency = this.currentConcurrency;
 			this.currentConcurrency = next;
+			this.onConcurrencyChange?.({
+				previousConcurrency,
+				nextConcurrency: next,
+				averageFrameMs: avg,
+			});
 			this.queue.updateConcurrency(next);
 		}
 	}

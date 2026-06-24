@@ -17,6 +17,7 @@ import {
 	ZHENHUN_COMMENT_POST_URL,
 } from "../core/extract/comments";
 import type { CommentPageRef } from "../core/extract/storage";
+import { createNoveleLogger } from "../core/log";
 import {
 	drawerClass,
 	drawerHeader,
@@ -26,6 +27,7 @@ import {
 import nameMap from "./styles/style.module.scss";
 
 const { aside, button, div, form, iframe, input, p, span, textarea } = van.tags;
+const logger = createNoveleLogger("comments");
 
 type CommentTreeNode = {
 	item: ReaderData["currentComments"]["val"]["items"][number];
@@ -182,13 +184,13 @@ export function CommentsPanel(
 		if (!challengeUrl) return;
 		const opened = window.open(challengeUrl, "_blank", "noopener,noreferrer");
 		if (!opened) {
-			console.warn("[novele] comment challenge fallback popup blocked", {
+			logger.warn("comment challenge fallback popup blocked", {
 				url: challengeUrl,
 			});
 			return;
 		}
 		opened.focus?.();
-		console.info("[novele] opened comment challenge fallback tab", {
+		logger.info("opened comment challenge fallback tab", {
 			url: challengeUrl,
 			reloadCount: commentChallengeReloadCount.val,
 		});
@@ -205,9 +207,7 @@ export function CommentsPanel(
 		data.failCurrentCommentSubmission(new Error(CLOUDFLARE_CHALLENGE_MESSAGE), {
 			waitingForCloudflareVerification: true,
 		});
-		console.info(
-			"[novele] comment submission waiting for Cloudflare verification",
-		);
+		logger.info("comment submission waiting for Cloudflare verification");
 	};
 
 	const enterCommentChallengeManualMode = (challengeUrl: string) => {
@@ -216,7 +216,7 @@ export function CommentsPanel(
 		commentChallengeFallbackUrl.val = challengeUrl;
 		data.failCurrentCommentSubmission(new Error(CLOUDFLARE_CHALLENGE_MESSAGE));
 		resetCommentFrame();
-		console.info("[novele] switched comment verification to manual resend", {
+		logger.info("switched comment verification to manual resend", {
 			url: challengeUrl,
 			reloadCount: commentChallengeReloadCount.val,
 		});
@@ -232,7 +232,7 @@ export function CommentsPanel(
 		}
 		if (source !== "load") return;
 		commentChallengeReloadCount.val += 1;
-		console.debug("[novele] observed comment challenge reload", {
+		logger.debug("observed comment challenge reload", {
 			url: challengeUrl,
 			reloadCount: commentChallengeReloadCount.val,
 		});
@@ -240,7 +240,7 @@ export function CommentsPanel(
 			enterCommentChallengeManualMode(challengeUrl);
 			return;
 		}
-		console.debug("[novele] comment iframe still awaiting verification", {
+		logger.debug("comment iframe still awaiting verification", {
 			url: challengeUrl,
 			reloadCount: commentChallengeReloadCount.val,
 			source,
@@ -257,11 +257,12 @@ export function CommentsPanel(
 		data.failCurrentCommentSubmission(error);
 		resetCommentFrame();
 		if (message === COMMENT_MISSING_AFTER_REDIRECT_MESSAGE) {
-			console.warn("[novele] redirected comment missing from returned page");
+			logger.warn("redirected comment missing from returned page");
 		}
 		if (message === COMMENT_RATE_LIMIT_MESSAGE) {
-			console.warn("[novele] comment request hit HTTP 429");
+			logger.warn("comment request hit HTTP 429");
 		}
+		logger.error("comment submission failed", { message });
 	};
 
 	const getCommentFrameResponseStatus = (): number | undefined => {
@@ -272,10 +273,7 @@ export function CommentsPanel(
 			const status = navigationEntry?.responseStatus;
 			return typeof status === "number" && status > 0 ? status : undefined;
 		} catch (error) {
-			console.debug(
-				"[novele] comment iframe responseStatus unavailable",
-				error,
-			);
+			logger.debug("comment iframe responseStatus unavailable", error);
 			return undefined;
 		}
 	};
@@ -288,14 +286,14 @@ export function CommentsPanel(
 		const respStatus = getCommentFrameResponseStatus();
 		const frameUrl = commentChallengeFrame.contentWindow?.location.href;
 		if (message?.href && frameUrl && message.href !== frameUrl) {
-			console.debug("[novele] comment iframe bridge href mismatch", {
+			logger.debug("comment iframe bridge href mismatch", {
 				source,
 				bridgeHref: message.href,
 				frameUrl,
 			});
 			return;
 		}
-		console.debug(`[novele] comment iframe ${source}`, {
+		logger.debug(`comment iframe ${source}`, {
 			bridgeCloudflare: message?.isCloudflareChallenge,
 			bridgeHref: message?.href,
 			url: frameUrl,
@@ -329,13 +327,11 @@ export function CommentsPanel(
 					source,
 					frameUrl ?? message?.href ?? ZHENHUN_COMMENT_POST_URL,
 				);
-				console.debug(
-					`[novele] comment iframe ${source} waiting for verification`,
-				);
+				logger.debug(`comment iframe ${source} waiting for verification`);
 				return;
 			}
 			handleCommentSubmissionFailure(error);
-			console.debug(`[novele] comment iframe ${source} failed`, error);
+			logger.debug(`comment iframe ${source} failed`, error);
 		}
 	};
 
@@ -374,11 +370,15 @@ export function CommentsPanel(
 		}
 
 		pendingCommentRefs = prepared.refs;
+		logger.info("submitting comment", {
+			replyingToCommentId: prepared.parentId,
+			refCount: prepared.refs.length,
+		});
 		resetCommentChallengeFallback();
 		clearCommentPostTimeout();
 		commentPostTimeoutId = window.setTimeout(() => {
 			if (!pendingCommentRefs) return;
-			console.warn("[novele] comment iframe timed out");
+			logger.warn("comment iframe timed out");
 			finalizeCommentPost();
 			data.failCurrentCommentSubmission(
 				new Error("Comment submission timed out."),
