@@ -50,6 +50,52 @@ function ChaptersPanel(ui: UiState, data: ReaderData, close: () => void) {
 		);
 	});
 
+	let lastClosedTime = 0;
+	let lastOverlayState: string | null = null;
+	let scrollTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+	van.derive(() => {
+		const activeOverlay = ui.activeOverlay.val;
+		if (activeOverlay === "chapters" && lastOverlayState !== "chapters") {
+			const now = Date.now();
+			const timeSinceLastClose = now - lastClosedTime;
+			const isQuickReopen = timeSinceLastClose < 1000;
+
+			const doScroll = () => {
+				const activeBtn = chapterNavRoot.querySelector(`.${nameMap.active}`);
+				if (activeBtn) {
+					activeBtn.scrollIntoView({ block: "center" });
+				}
+			};
+
+			if (scrollTimeoutId) {
+				clearTimeout(scrollTimeoutId);
+			}
+
+			if (isQuickReopen) {
+				scrollTimeoutId = setTimeout(() => {
+					doScroll();
+					scrollTimeoutId = null;
+				}, 250);
+			} else {
+				scrollTimeoutId = setTimeout(() => {
+					doScroll();
+					scrollTimeoutId = null;
+				}, 50);
+			}
+		} else if (
+			activeOverlay !== "chapters" &&
+			lastOverlayState === "chapters"
+		) {
+			lastClosedTime = Date.now();
+			if (scrollTimeoutId) {
+				clearTimeout(scrollTimeoutId);
+				scrollTimeoutId = null;
+			}
+		}
+		lastOverlayState = activeOverlay;
+	});
+
 	return aside(
 		{
 			class: drawerClass(ui, "chapters"),
