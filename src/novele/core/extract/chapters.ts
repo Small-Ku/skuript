@@ -61,9 +61,15 @@ const numberedTitleRegex = new RegExp(
 	`^\\s*(${numberRegex}+)\\s*[.．、]\\s*\\S.*$`,
 	"u",
 );
-const chapterTitleRegex = new RegExp(`第\\s*(${numberRegex}+)\\s*章`, "u");
+const chapterTitleRegex = new RegExp(
+	`第\\s*(${numberRegex}+)\\s*(?:章|番外|\\s+番外)(?:\\s*\\S.*)?`,
+	"u",
+);
 const endingTitleRegex = new RegExp(`(${numberRegex}+)\\s*正文完`, "u");
-const extraTitleRegex = new RegExp(`^\\s*番外\\s*(${numberRegex}+)`, "u");
+const extraTitleRegex = new RegExp(
+	`^\\s*番外\\s*(${numberRegex}+)(?:\\s*\\S.*)?`,
+	"u",
+);
 const bookTitleRegex = new RegExp(
 	`\\{bookTitle\\}[\\p{Unified_Ideograph}\\s：]*(${numberRegex}+)`,
 	"u",
