@@ -52,7 +52,7 @@ export function drawerHeader(
 	);
 }
 
-export function segmentedButtonGroup<T extends string>(
+export function segmentedButtonGroup<T>(
 	currentValue: State<T>,
 	options: { label: string; value: T; optionClass?: string }[],
 ) {

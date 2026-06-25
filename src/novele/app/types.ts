@@ -1,6 +1,13 @@
-export type OverlayName = "chapters" | "comments" | "settings";
+export enum OverlayName {
+	Chapters = 0,
+	Comments = 1,
+	Settings = 2,
+}
 
-export type SettingsTab = "typography" | "interface";
+export enum SettingsTab {
+	Typography = 0,
+	Interface = 1,
+}
 
 export const BUILT_IN_TYPEFACE_VALUES = [
 	"fontReader",
@@ -34,8 +41,9 @@ export const READING_WIDTH_PRESET_VALUES = [
 ] as const;
 export type ReadingWidthPreset = (typeof READING_WIDTH_PRESET_VALUES)[number];
 
+/** @dense-enum-values a l d */
 export const THEME_MODE_VALUES = ["auto", "light", "dark"] as const;
-export type ThemeMode = "auto" | "light" | "dark";
+export type ThemeMode = (typeof THEME_MODE_VALUES)[number];
 
 /** @dense-enum-values d m s */
 export const INTERFACE_DENSITY_VALUES = [
@@ -45,9 +53,11 @@ export const INTERFACE_DENSITY_VALUES = [
 ] as const;
 export type InterfaceDensity = (typeof INTERFACE_DENSITY_VALUES)[number];
 
+/** @dense-enum-values l r */
 export const PANEL_POSITION_VALUES = ["left", "right"] as const;
-export type PanelPosition = "left" | "right";
+export type PanelPosition = (typeof PANEL_POSITION_VALUES)[number];
 
+/** @dense-enum-values t b */
 export const DRAWER_HEADER_POSITION_VALUES = ["top", "bottom"] as const;
 export type DrawerHeaderPosition =
 	(typeof DRAWER_HEADER_POSITION_VALUES)[number];

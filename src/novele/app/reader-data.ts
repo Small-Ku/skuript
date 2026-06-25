@@ -51,7 +51,12 @@ type PreparedCommentSubmission = {
 	parentId: string | null;
 };
 
-export type NavigationMode = "initial" | "previous" | "next" | "jump";
+export enum NavigationMode {
+	Initial = 0,
+	Previous = 1,
+	Next = 2,
+	Jump = 3,
+}
 
 const COMMENT_PREFETCH_RADIUS = 1;
 const logger = createNoveleLogger("reader-data");
@@ -98,7 +103,7 @@ function findChapterLinkIndex(nextLinks: Link[], chapterUrl: string) {
 export function createReaderData() {
 	const links = van.state<Link[]>([]);
 	const fetchStates = van.state<Map<string, ChapterFetchState>>(new Map());
-	const navMode = van.state<NavigationMode>("initial");
+	const navMode = van.state<NavigationMode>(NavigationMode.Initial);
 	const currentComments = van.state<CommentViewState>({
 		isLoading: false,
 		posting: false,
@@ -483,7 +488,7 @@ export function createReaderData() {
 		}));
 	});
 
-	const goTo = (index: number, mode: NavigationMode = "jump") => {
+	const goTo = (index: number, mode: NavigationMode = NavigationMode.Jump) => {
 		if (!links.val.length) return;
 		const nextIndex = Math.max(nav.min.val, Math.min(nav.max.val, index));
 		if (nextIndex === nav.index.val) return;
@@ -506,7 +511,10 @@ export function createReaderData() {
 		});
 	};
 
-	const goToChapter = (chapterIndex: number, mode: NavigationMode = "jump") => {
+	const goToChapter = (
+		chapterIndex: number,
+		mode: NavigationMode = NavigationMode.Jump,
+	) => {
 		const targetIndex = Math.max(
 			0,
 			Math.min(chapterEntries.val.length - 1, chapterIndex),
@@ -520,18 +528,18 @@ export function createReaderData() {
 	const previous = () => {
 		const currentIdx = getCurrentChapterIndex();
 		if (currentIdx > 0) {
-			goToChapter(currentIdx - 1, "previous");
+			goToChapter(currentIdx - 1, NavigationMode.Previous);
 		} else {
-			goTo(nav.index.val - 1, "previous");
+			goTo(nav.index.val - 1, NavigationMode.Previous);
 		}
 	};
 
 	const next = () => {
 		const currentIdx = getCurrentChapterIndex();
 		if (currentIdx >= 0 && currentIdx < chapterEntries.val.length - 1) {
-			goToChapter(currentIdx + 1, "next");
+			goToChapter(currentIdx + 1, NavigationMode.Next);
 		} else {
-			goTo(nav.index.val + 1, "next");
+			goTo(nav.index.val + 1, NavigationMode.Next);
 		}
 	};
 

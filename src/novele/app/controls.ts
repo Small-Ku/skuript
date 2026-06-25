@@ -10,6 +10,7 @@ import { debounceRaf } from "../../util/batch";
 import type { createReaderData } from "./reader-data";
 import type { createUiState } from "./state";
 import nameMap from "./styles/style.module.scss";
+import { OverlayName } from "./types";
 
 const { button, div, footer, header, span } = van.tags;
 
@@ -22,10 +23,10 @@ function activeClass(active: boolean, className: string) {
 
 function overlayButton(
 	ui: UiState,
-	name: "chapters" | "comments" | "settings",
+	name: OverlayName,
 	label: string,
 	icon: Node,
-	toggleOverlay: (name: "chapters" | "comments" | "settings") => void,
+	toggleOverlay: (name: OverlayName) => void,
 ) {
 	return button(
 		{
@@ -96,7 +97,7 @@ export function BottomControls(
 	const useCompactLayout = van.state(false);
 	let desktopSizerElement: HTMLDivElement | undefined;
 
-	const toggleOverlay = (name: "chapters" | "comments" | "settings") => {
+	const toggleOverlay = (name: OverlayName) => {
 		ui.activeOverlay.val = ui.activeOverlay.val === name ? null : name;
 	};
 
@@ -106,7 +107,7 @@ export function BottomControls(
 	van.derive(() => {
 		if (
 			!data.currentCommentsAvailable.val &&
-			ui.activeOverlay.val === "comments"
+			ui.activeOverlay.val === OverlayName.Comments
 		) {
 			ui.activeOverlay.val = null;
 		}
@@ -123,18 +124,30 @@ export function BottomControls(
 			{
 				class: `${nameMap.glass} ${nameMap.glassNav} ${nameMap.compactStartPad} ${nameMap.compactEndPad}`,
 			},
-			overlayButton(ui, "chapters", "Chapters", IconToc(), toggleOverlay),
+			overlayButton(
+				ui,
+				OverlayName.Chapters,
+				"Chapters",
+				IconToc(),
+				toggleOverlay,
+			),
 			() =>
 				data.currentCommentsAvailable.val
 					? overlayButton(
 							ui,
-							"comments",
+							OverlayName.Comments,
 							"Comments",
 							IconComment(),
 							toggleOverlay,
 						)
 					: "",
-			overlayButton(ui, "settings", "Preferences", IconTune(), toggleOverlay),
+			overlayButton(
+				ui,
+				OverlayName.Settings,
+				"Preferences",
+				IconTune(),
+				toggleOverlay,
+			),
 		);
 
 	const desktopArrowGroup = () =>
@@ -176,18 +189,30 @@ export function BottomControls(
 				},
 				isPrevDisabled,
 			),
-			overlayButton(ui, "chapters", "Chapters", IconToc(), toggleOverlay),
+			overlayButton(
+				ui,
+				OverlayName.Chapters,
+				"Chapters",
+				IconToc(),
+				toggleOverlay,
+			),
 			() =>
 				data.currentCommentsAvailable.val
 					? overlayButton(
 							ui,
-							"comments",
+							OverlayName.Comments,
 							"Comments",
 							IconComment(),
 							toggleOverlay,
 						)
 					: "",
-			overlayButton(ui, "settings", "Preferences", IconTune(), toggleOverlay),
+			overlayButton(
+				ui,
+				OverlayName.Settings,
+				"Preferences",
+				IconTune(),
+				toggleOverlay,
+			),
 			arrowButton(
 				"Next chapter",
 				HorizonDir.Right,

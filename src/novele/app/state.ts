@@ -9,20 +9,18 @@ import type {
 	InterfaceDensity,
 	LineSpacingPreset,
 	Oklch,
-	OverlayName,
 	PanelPosition,
 	ReadingWidthPreset,
-	SettingsTab,
 	TextSizePreset,
 	ThemeMode,
 	Typeface,
 } from "./types";
-import { isBuiltInTypeface } from "./types";
+import { isBuiltInTypeface, type OverlayName, SettingsTab } from "./types";
 
 export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const controlsVisible = van.state(true);
 	const activeOverlay = van.state<OverlayName | null>(null);
-	const settingsTab = van.state<SettingsTab>("typography");
+	const settingsTab = van.state<SettingsTab>(SettingsTab.Typography);
 	const typeface = van.state<Typeface>(initial.typeface);
 	const customTypeface = van.state(initial.customTypeface);
 	const advancedTextSize = van.state(initial.advancedTextSize);

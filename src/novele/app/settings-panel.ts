@@ -17,7 +17,6 @@ import type {
 	Oklch,
 	PanelPosition,
 	ReadingWidthPreset,
-	SettingsTab,
 	TextSizePreset,
 	ThemeMode,
 	Typeface,
@@ -27,8 +26,10 @@ import {
 	COMPACT_REGULAR_RELAXED_VALUES,
 	DRAWER_HEADER_POSITION_VALUES,
 	INTERFACE_DENSITY_VALUES,
+	OverlayName,
 	PANEL_POSITION_VALUES,
 	READING_WIDTH_PRESET_VALUES,
+	SettingsTab,
 	THEME_MODE_VALUES,
 } from "./types";
 
@@ -38,7 +39,7 @@ const [typefaceReader, typefaceUi, typefaceLiterata] = BUILT_IN_TYPEFACE_VALUES;
 const [compactPreset, regularPreset, relaxedPreset] =
 	COMPACT_REGULAR_RELAXED_VALUES;
 const [narrowWidth, regularWidth, wideWidth] = READING_WIDTH_PRESET_VALUES;
-const [lightMode, autoMode, darkMode] = THEME_MODE_VALUES;
+const [autoMode, lightMode, darkMode] = THEME_MODE_VALUES;
 const [compactDensity, comfortableDensity, spaciousDensity] =
 	INTERFACE_DENSITY_VALUES;
 const [leftPanel, rightPanel] = PANEL_POSITION_VALUES;
@@ -316,7 +317,7 @@ function tabButton(ui: UiState, label: string, value: SettingsTab) {
 export function SettingsPanel(ui: UiState, close: () => void) {
 	return aside(
 		{
-			class: drawerClass(ui, "settings"),
+			class: drawerClass(ui, OverlayName.Settings),
 			onclick: (event) => event.stopPropagation(),
 		},
 		drawerHeader("Preferences", close),
@@ -324,11 +325,11 @@ export function SettingsPanel(ui: UiState, close: () => void) {
 			{ class: nameMap.settingsContentWrapper },
 			div(
 				{ class: nameMap.tabSwitcher },
-				tabButton(ui, "Typography", "typography"),
-				tabButton(ui, "Interface", "interface"),
+				tabButton(ui, "Typography", SettingsTab.Typography),
+				tabButton(ui, "Interface", SettingsTab.Interface),
 			),
 			div({ class: nameMap.settingsBody }, () =>
-				ui.settingsTab.val === "typography"
+				ui.settingsTab.val === SettingsTab.Typography
 					? typographyTab(ui)
 					: interfaceTab(ui),
 			),

@@ -13,6 +13,7 @@ import {
 import type { ChapterEntry } from "./reader-data";
 import { SettingsPanel } from "./settings-panel";
 import nameMap from "./styles/style.module.scss";
+import { OverlayName } from "./types";
 
 const { aside, button, div, nav } = van.tags;
 
@@ -50,12 +51,15 @@ function ChaptersPanel(ui: UiState, data: ReaderData, close: () => void) {
 	};
 
 	let lastClosedTime = 0;
-	let lastOverlayState: string | null = null;
+	let lastOverlayState: OverlayName | null = null;
 	let scrollTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	van.derive(() => {
 		const activeOverlay = ui.activeOverlay.val;
-		if (activeOverlay === "chapters" && lastOverlayState !== "chapters") {
+		if (
+			activeOverlay === OverlayName.Chapters &&
+			lastOverlayState !== OverlayName.Chapters
+		) {
 			const now = Date.now();
 			const timeSinceLastClose = now - lastClosedTime;
 			const isQuickReopen = timeSinceLastClose < 1000;
@@ -72,8 +76,8 @@ function ChaptersPanel(ui: UiState, data: ReaderData, close: () => void) {
 				isQuickReopen ? 250 : 50,
 			);
 		} else if (
-			activeOverlay !== "chapters" &&
-			lastOverlayState === "chapters"
+			activeOverlay !== OverlayName.Chapters &&
+			lastOverlayState === OverlayName.Chapters
 		) {
 			lastClosedTime = Date.now();
 			if (scrollTimeoutId) {
@@ -89,7 +93,7 @@ function ChaptersPanel(ui: UiState, data: ReaderData, close: () => void) {
 		const activeOverlay = ui.activeOverlay.val;
 		const entries = data.chapterEntries.val;
 
-		if (activeOverlay === "chapters") {
+		if (activeOverlay === OverlayName.Chapters) {
 			renderChapters([entries], async ({ isAborted }) => {
 				chapterNavRoot.replaceChildren();
 				buttonMap.clear();
@@ -150,7 +154,7 @@ function ChaptersPanel(ui: UiState, data: ReaderData, close: () => void) {
 
 	return aside(
 		{
-			class: drawerClass(ui, "chapters"),
+			class: drawerClass(ui, OverlayName.Chapters),
 			onclick: (event) => event.stopPropagation(),
 		},
 		drawerHeader("Chapters", close),

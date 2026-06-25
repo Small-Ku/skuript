@@ -8,8 +8,7 @@ import {
 } from "../core/scroll";
 import { BottomControls, TopBar } from "./controls";
 import { OverlayBackdrop, OverlayPanels } from "./overlays";
-import type { NavigationMode } from "./reader-data";
-import { createReaderData } from "./reader-data";
+import { createReaderData, NavigationMode } from "./reader-data";
 import type { UiState } from "./state";
 import nameMap from "./styles/style.module.scss";
 import {
@@ -185,7 +184,7 @@ export function Reader(open: State<boolean>, ui: UiState) {
 			suppressScrollPersistence = true;
 			readerSurface.scrollTop = record
 				? record.ratio * maxScrollTop
-				: pendingRestore.mode === "previous"
+				: pendingRestore.mode === NavigationMode.Previous
 					? maxScrollTop
 					: 0;
 			pendingRestore = undefined;

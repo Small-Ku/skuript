@@ -8,7 +8,10 @@ export type Link = {
 };
 
 type LinkListener = (links: Link[]) => void;
-type Direction = "prev" | "next";
+enum Direction {
+	Prev = 0,
+	Next = 1,
+}
 
 const catalogLinkSelectors = {
 	"www.52shuku.vip": ["ul.list > li.mulu > a"],
@@ -117,7 +120,7 @@ function insertDiscoveredLink(
 	}
 	if (!linkStore.getById(referenceUrl))
 		throw new Error(`reference link missing: ${referenceUrl}`);
-	if (direction === "prev")
+	if (direction === Direction.Prev)
 		linkStore.insertBefore(link.url, link, referenceUrl);
 	else linkStore.insertAfter(link.url, link, referenceUrl);
 	emitLinks();
@@ -177,8 +180,8 @@ function isIndexLink(link: Link): boolean {
 
 function classifyChapterNavLink(link: Link): Direction | "unknown" {
 	const text = link.title?.replace(/\s+/g, "") ?? "";
-	if (text.match(/上一[页頁章篇]?|前一[页頁章篇]?/)) return "prev";
-	if (text.match(/下一[页頁章篇]?|后一[页頁章篇]?/)) return "next";
+	if (text.match(/上一[页頁章篇]?|前一[页頁章篇]?/)) return Direction.Prev;
+	if (text.match(/下一[页頁章篇]?|后一[页頁章篇]?/)) return Direction.Next;
 	return "unknown";
 }
 

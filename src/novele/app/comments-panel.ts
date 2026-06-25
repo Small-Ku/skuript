@@ -25,9 +25,15 @@ import {
 	type UiState,
 } from "./overlay-shared";
 import nameMap from "./styles/style.module.scss";
+import { OverlayName } from "./types";
 
 const { aside, button, div, form, iframe, input, p, span, textarea } = van.tags;
 const logger = createNoveleLogger("comments");
+
+enum CommentChallengeSource {
+	Load = 0,
+	Message = 1,
+}
 
 type CommentTreeNode = {
 	item: ReaderData["currentComments"]["val"]["items"][number];
@@ -223,14 +229,14 @@ export function CommentsPanel(
 	};
 
 	const handleCommentChallengeDetected = (
-		source: "load" | "message",
+		source: CommentChallengeSource,
 		challengeUrl: string,
 	) => {
 		if (!data.currentComments.val.waitingForCloudflareVerification) {
 			enterCommentChallengeWait(challengeUrl);
 			return;
 		}
-		if (source !== "load") return;
+		if (source !== CommentChallengeSource.Load) return;
 		commentChallengeReloadCount.val += 1;
 		logger.debug("observed comment challenge reload", {
 			url: challengeUrl,
@@ -279,7 +285,7 @@ export function CommentsPanel(
 	};
 
 	const handleCommentFrameResult = (
-		source: "load" | "message",
+		source: CommentChallengeSource,
 		message?: CommentFrameBridgeMessage,
 	) => {
 		if (!pendingCommentRefs) return;
@@ -287,18 +293,21 @@ export function CommentsPanel(
 		const frameUrl = commentChallengeFrame.contentWindow?.location.href;
 		if (message?.href && frameUrl && message.href !== frameUrl) {
 			logger.debug("comment iframe bridge href mismatch", {
-				source,
+				source: source === CommentChallengeSource.Load ? "load" : "message",
 				bridgeHref: message.href,
 				frameUrl,
 			});
 			return;
 		}
-		logger.debug(`comment iframe ${source}`, {
-			bridgeCloudflare: message?.isCloudflareChallenge,
-			bridgeHref: message?.href,
-			url: frameUrl,
-			respStatus,
-		});
+		logger.debug(
+			`comment iframe ${source === CommentChallengeSource.Load ? "load" : "message"}`,
+			{
+				bridgeCloudflare: message?.isCloudflareChallenge,
+				bridgeHref: message?.href,
+				url: frameUrl,
+				respStatus,
+			},
+		);
 		try {
 			const doc = commentChallengeFrame.contentDocument;
 			const finalUrl = frameUrl;
@@ -327,11 +336,16 @@ export function CommentsPanel(
 					source,
 					frameUrl ?? message?.href ?? ZHENHUN_COMMENT_POST_URL,
 				);
-				logger.debug(`comment iframe ${source} waiting for verification`);
+				logger.debug(
+					`comment iframe ${source === CommentChallengeSource.Load ? "load" : "message"} waiting for verification`,
+				);
 				return;
 			}
 			handleCommentSubmissionFailure(error);
-			logger.debug(`comment iframe ${source} failed`, error);
+			logger.debug(
+				`comment iframe ${source === CommentChallengeSource.Load ? "load" : "message"} failed`,
+				error,
+			);
 		}
 	};
 
@@ -341,13 +355,13 @@ export function CommentsPanel(
 				commentChallengeFrame.contentWindow &&
 				commentChallengeFrame.contentWindow !== window
 			) {
-				handleCommentFrameResult("message", message);
+				handleCommentFrameResult(CommentChallengeSource.Message, message);
 			}
 		};
 
 	commentChallengeFrame.addEventListener("load", () => {
 		window.setTimeout(() => {
-			handleCommentFrameResult("load");
+			handleCommentFrameResult(CommentChallengeSource.Load);
 		}, 0);
 	});
 
@@ -355,7 +369,7 @@ export function CommentsPanel(
 		if (event.origin !== window.location.origin) return;
 		if (event.source !== commentChallengeFrame.contentWindow) return;
 		if (!isCommentFrameBridgeMessage(event.data)) return;
-		handleCommentFrameResult("message", event.data);
+		handleCommentFrameResult(CommentChallengeSource.Message, event.data);
 	});
 
 	const onCommentSubmit = (event: Event) => {
@@ -455,7 +469,8 @@ export function CommentsPanel(
 	};
 
 	van.derive(() => {
-		if (ui.activeOverlay.val === "comments") data.loadCurrentComments();
+		if (ui.activeOverlay.val === OverlayName.Comments)
+			data.loadCurrentComments();
 	});
 
 	van.derive(() => {
@@ -480,7 +495,7 @@ export function CommentsPanel(
 		const items = state.items;
 		const isLoading = state.isLoading;
 
-		if (activeOverlay === "comments") {
+		if (activeOverlay === OverlayName.Comments) {
 			renderComments([items, isLoading], async ({ isAborted }) => {
 				commentsRoot.replaceChildren();
 
@@ -549,7 +564,7 @@ export function CommentsPanel(
 
 	return aside(
 		{
-			class: drawerClass(ui, "comments"),
+			class: drawerClass(ui, OverlayName.Comments),
 			onclick: (event) => event.stopPropagation(),
 		},
 		drawerHeader("Comments", close, commentHeaderTail(data)),

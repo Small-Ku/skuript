@@ -216,8 +216,9 @@ const preferenceSchema = {
 	themeMode: {
 		storageBlob: "theme",
 		storageField: "themeMode",
-		seedValue: "dark" as ThemeMode,
-		parse: (value) => parseEnum(value, themeModeSet, "dark" as ThemeMode),
+		seedValue: THEME_MODE_VALUES[2] as ThemeMode,
+		parse: (value) =>
+			parseEnum(value, themeModeSet, THEME_MODE_VALUES[2] as ThemeMode),
 	},
 	lightPrimarySeed: {
 		storageBlob: "theme",
@@ -274,16 +275,24 @@ const preferenceSchema = {
 	panelPosition: {
 		storageBlob: "ui",
 		storageField: "panelPosition",
-		seedValue: "right" as PanelPosition,
+		seedValue: PANEL_POSITION_VALUES[1] as PanelPosition,
 		parse: (value) =>
-			parseEnum(value, panelPositionSet, "right" as PanelPosition),
+			parseEnum(
+				value,
+				panelPositionSet,
+				PANEL_POSITION_VALUES[1] as PanelPosition,
+			),
 	},
 	drawerHeaderPosition: {
 		storageBlob: "ui",
 		storageField: "drawerHeaderPosition",
-		seedValue: "top" as DrawerHeaderPosition,
+		seedValue: DRAWER_HEADER_POSITION_VALUES[0] as DrawerHeaderPosition,
 		parse: (value) =>
-			parseEnum(value, drawerHeaderPositionSet, "top" as DrawerHeaderPosition),
+			parseEnum(
+				value,
+				drawerHeaderPositionSet,
+				DRAWER_HEADER_POSITION_VALUES[0] as DrawerHeaderPosition,
+			),
 	},
 	commentAuthor: {
 		storageBlob: "advanced",
