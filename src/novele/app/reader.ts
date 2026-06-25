@@ -14,6 +14,7 @@ import nameMap from "./styles/style.module.scss";
 import {
 	COMPACT_REGULAR_RELAXED_VALUES,
 	isBuiltInTypeface,
+	PANEL_POSITION_VALUES,
 	READING_WIDTH_PRESET_VALUES,
 } from "./types";
 
@@ -238,7 +239,7 @@ export function Reader(open: State<boolean>, ui: UiState) {
 				[
 					nameMap.readerMain,
 					ui.activeOverlay.val ? nameMap.drawerOpen : "",
-					ui.panelPosition.val === "left"
+					ui.panelPosition.val === PANEL_POSITION_VALUES[0]
 						? nameMap.panelLeft
 						: nameMap.panelRight,
 					currentTypefaceClass(ui),
@@ -290,7 +291,7 @@ export function Reader(open: State<boolean>, ui: UiState) {
 						" ",
 					),
 				style: () =>
-					`transform-origin:${ui.panelPosition.val === "left" ? "left" : "right"} center`,
+					`transform-origin:${ui.panelPosition.val === PANEL_POSITION_VALUES[0] ? "left" : "right"} center`,
 			},
 			readerSurface,
 			TopBar(ui, data, open),

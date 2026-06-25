@@ -5,6 +5,7 @@ import { Reader } from "./reader";
 import { createUiState } from "./state";
 import nameMap from "./styles/style.module.scss";
 import { generateThemeVars } from "./theme/theme";
+import { PANEL_POSITION_VALUES, THEME_MODE_VALUES } from "./types";
 
 const { button, div, span } = van.tags;
 
@@ -17,15 +18,17 @@ export const FabApp = () => {
 			[
 				nameMap.app,
 				open.val ? nameMap.appExpanded : "",
-				ui.effectiveTheme.val === "dark"
+				ui.effectiveTheme.val === THEME_MODE_VALUES[2]
 					? nameMap.themeDark
 					: nameMap.themeLight,
-				ui.panelPosition.val === "left" ? nameMap.uiDirectionLeft : "",
+				ui.panelPosition.val === PANEL_POSITION_VALUES[0]
+					? nameMap.uiDirectionLeft
+					: "",
 			]
 				.filter(Boolean)
 				.join(" "),
 		style: () => {
-			const isDark = ui.effectiveTheme.val === "dark";
+			const isDark = ui.effectiveTheme.val === THEME_MODE_VALUES[2];
 			const vars = generateThemeVars(
 				isDark ? ui.darkPrimarySeed.val : ui.lightPrimarySeed.val,
 				isDark ? ui.darkSurfaceSeed.val : ui.lightSurfaceSeed.val,

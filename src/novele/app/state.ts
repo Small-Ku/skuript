@@ -15,7 +15,12 @@ import type {
 	ThemeMode,
 	Typeface,
 } from "./types";
-import { isBuiltInTypeface, type OverlayName, SettingsTab } from "./types";
+import {
+	isBuiltInTypeface,
+	type OverlayName,
+	SettingsTab,
+	THEME_MODE_VALUES,
+} from "./types";
 
 export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const controlsVisible = van.state(true);
@@ -62,10 +67,10 @@ export function createUiState(initial: UiPreferences = defaultUiPreferences) {
 	const replyingToCommentId = van.state<string | null>(null);
 
 	const effectiveTheme = van.derive<Exclude<ThemeMode, "auto">>(() =>
-		themeMode.val === "auto"
+		themeMode.val === THEME_MODE_VALUES[0]
 			? systemPrefersDark.val
-				? "dark"
-				: "light"
+				? THEME_MODE_VALUES[2]
+				: THEME_MODE_VALUES[1]
 			: themeMode.val,
 	);
 

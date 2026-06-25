@@ -10,7 +10,7 @@ import { debounceRaf } from "../../util/batch";
 import type { createReaderData } from "./reader-data";
 import type { createUiState } from "./state";
 import nameMap from "./styles/style.module.scss";
-import { OverlayName } from "./types";
+import { OverlayName, PANEL_POSITION_VALUES } from "./types";
 
 const { button, div, footer, header, span } = van.tags;
 
@@ -239,7 +239,9 @@ export function BottomControls(
 		}
 		const barStyle = window.getComputedStyle(desktopSizerElement);
 		const anchorOffset = parsePixelValue(
-			ui.panelPosition.val === "left" ? barStyle.left : barStyle.right,
+			ui.panelPosition.val === PANEL_POSITION_VALUES[0]
+				? barStyle.left
+				: barStyle.right,
 		);
 		const availableWidth = Math.max(0, window.innerWidth - anchorOffset);
 		const requiredWidth = Math.ceil(

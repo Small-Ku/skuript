@@ -8,7 +8,11 @@ import { IconClose, IconTune } from "../../style/icon";
 import type { createReaderData } from "./reader-data";
 import type { createUiState } from "./state";
 import nameMap from "./styles/style.module.scss";
-import type { OverlayName } from "./types";
+import {
+	DRAWER_HEADER_POSITION_VALUES,
+	type OverlayName,
+	PANEL_POSITION_VALUES,
+} from "./types";
 
 const { button, div, h2, input, span } = van.tags;
 
@@ -23,8 +27,12 @@ export function drawerClass(
 	return () =>
 		[
 			nameMap.bottomSheetPanel,
-			ui.panelPosition.val === "left" ? nameMap.panelLeft : nameMap.panelRight,
-			ui.drawerHeaderPosition.val === "bottom" ? nameMap.headerBottom : "",
+			ui.panelPosition.val === PANEL_POSITION_VALUES[0]
+				? nameMap.panelLeft
+				: nameMap.panelRight,
+			ui.drawerHeaderPosition.val === DRAWER_HEADER_POSITION_VALUES[1]
+				? nameMap.headerBottom
+				: "",
 			ui.activeOverlay.val === name ? nameMap.visible : "",
 			...extraClasses,
 		]
