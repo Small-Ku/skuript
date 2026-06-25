@@ -99,6 +99,10 @@
 		flex-direction: row;
 		align-items: center;
 		justify-content: space-between;
+
+		.label {
+			margin-bottom: 0;
+		}
 	}
 
 	.label {
@@ -108,11 +112,6 @@
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		color: var(--color-muted);
-	}
-
-	.inlineSetting .label,
-	.sliderHeader .label {
-		margin-bottom: 0;
 	}
 
 	.buttonRow {
@@ -172,6 +171,10 @@
 		align-items: center;
 		justify-content: space-between;
 		margin-bottom: d.token("settings", "slider-header-margin-bottom");
+
+		.label {
+			margin-bottom: 0;
+		}
 	}
 
 	.sliderActions {
@@ -292,33 +295,6 @@
 		box-shadow: 0 0 4px rgb(0 0 0 / 0.5);
 		transform: translate(-50%, -50%);
 		pointer-events: none;
-	}
-
-	.colorPicker button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.25em;
-
-		&:hover {
-			background-color: var(--color-surface);
-		}
-	}
-
-	.colorButton {
-		border: 2px solid transparent;
-		border-radius: 999px;
-
-		&.active {
-			background: transparent;
-		}
-	}
-
-	.colorSwatch {
-		width: 1.5em;
-		height: 1.5em;
-		border-radius: 50%;
-		box-shadow: 0 2px 4px rgb(0 0 0 / 0.15);
 	}
 
 	.customDropdown {
@@ -455,30 +431,5 @@
 			color: var(--color-primary);
 			background-color: var(--color-surface-hover);
 		}
-	}
-
-	.swatchCyan,
-	.swatchEmerald,
-	.swatchAmber,
-	.swatchRose {
-		.colorSwatch {
-			background-color: var(--swatch-color);
-		}
-	}
-
-	.swatchCyan {
-		--swatch-color: #00e5ff;
-	}
-
-	.swatchEmerald {
-		--swatch-color: #10b981;
-	}
-
-	.swatchAmber {
-		--swatch-color: #f59e0b;
-	}
-
-	.swatchRose {
-		--swatch-color: #f43f5e;
 	}
 }

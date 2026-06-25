@@ -95,12 +95,6 @@
 		box-shadow: var(--shadow-glow-primary);
 	}
 
-	.glassArrows {
-		padding-block: var(--ui-arrow-pad-block);
-		padding-inline: d.token("controls", "arrow-inline-pad");
-		gap: d.token("controls", "arrow-gap");
-	}
-
 	.compactStartPad {
 		padding-inline-start: d.token("controls", "nav-edge-inline-pad");
 	}
@@ -109,12 +103,18 @@
 		padding-inline-end: d.token("controls", "nav-edge-inline-pad");
 	}
 
-	.glassArrows.compactStartPad {
-		padding-inline-start: d.token("controls", "arrow-edge-inline-pad");
-	}
+	.glassArrows {
+		padding-block: var(--ui-arrow-pad-block);
+		padding-inline: d.token("controls", "arrow-inline-pad");
+		gap: d.token("controls", "arrow-gap");
 
-	.glassArrows.compactEndPad {
-		padding-inline-end: d.token("controls", "arrow-edge-inline-pad");
+		&.compactStartPad {
+			padding-inline-start: d.token("controls", "arrow-edge-inline-pad");
+		}
+
+		&.compactEndPad {
+			padding-inline-end: d.token("controls", "arrow-edge-inline-pad");
+		}
 	}
 
 	.navButton {
@@ -188,18 +188,18 @@
 		&::-webkit-scrollbar {
 			display: none;
 		}
-	}
 
-	.mobileBottomGroup.compactStartPad {
-		padding-inline-start: 0.65em;
-	}
+		&.compactStartPad {
+			padding-inline-start: 0.65em;
+		}
 
-	.mobileBottomGroup.compactEndPad {
-		padding-inline-end: 0.65em;
-	}
+		&.compactEndPad {
+			padding-inline-end: 0.65em;
+		}
 
-	.mobileBottomGroup .navButton {
-		flex: 0 0 auto;
-		padding: 0.4em;
+		.navButton {
+			flex: 0 0 auto;
+			padding: 0.4em;
+		}
 	}
 }

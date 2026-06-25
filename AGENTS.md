@@ -36,6 +36,14 @@ This repo uses TypeScript, TSX, and SCSS. Follow the existing style:
 - Delete orphaned modules and empty legacy folders once imports have moved. Do not keep dead paths around just to avoid a cleanup diff.
 - For site-support fixes, prefer additive selector or URL-normalization fallbacks. Preserve broad supported-host behavior unless the live DOM proves it wrong.
 
+### SCSS / CSS naming
+The SCSS files under `src/novele/app/styles/` are compiled through CSS Modules (`style.module.scss`). Every exported class name costs bytes in both the compiled CSS and the JS `nameMap` object, so keep the name count minimal:
+
+- **Structural selectors first.** When an inner element has a stable tag and is always a direct or indirect child of a named container, target it with an element or combinator selector (`h2`, `button`, `svg`, `&>header`, `.parent .child`) instead of adding an exported class.
+- **Nest modifiers inside their parent.** Compound selectors like `.parent.modifier` or `.parent .descendant` must be written as `&.modifier {}` or `.descendant {}` nested inside the parent block, not as separate flat rules at the mixin level.
+- **Export a class only when TypeScript references it.** Add a `.className` rule only if it will be accessed via `nameMap.className` in TypeScript. Contextual overrides and descendant rules internal to SCSS must use nesting or element selectors instead.
+- **Delete dead classes.** A class with no `nameMap.className` reference in TypeScript is dead — remove it.
+
 The build pipeline (in `build.ts` and `bun_plugins/`) recognizes special TypeScript JSDoc annotations to optimize bundle size, safely mangle properties, or strip debug code:
 - `@<env>-only` / `@<env>-except` Strips environment-scoped code at build time. `@dev-only` keeps code only in dev builds (removes in prod/test); `@prod-only` keeps code only in prod builds; `@<env>-except` (also `-exclude`/`-not`) inverts the condition. Applies to modules (file-level comment), declarations, object properties, and cascades to unused imports/variables.
 - `@dense-enum-values <values>` Compresses string literal arrays in-place to minimize bundle size.
