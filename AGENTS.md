@@ -37,7 +37,7 @@ This repo uses TypeScript, TSX, and SCSS. Follow the existing style:
 - For site-support fixes, prefer additive selector or URL-normalization fallbacks. Preserve broad supported-host behavior unless the live DOM proves it wrong.
 
 The build pipeline (in `build.ts` and `bun_plugins/`) recognizes special TypeScript JSDoc annotations to optimize bundle size, safely mangle properties, or strip debug code:
-- `@dev-only` Strips dev-only modules, declarations, object properties, and unused imports/variables.
+- `@<env>-only` / `@<env>-except` Strips environment-scoped code at build time. `@dev-only` keeps code only in dev builds (removes in prod/test); `@prod-only` keeps code only in prod builds; `@<env>-except` (also `-exclude`/`-not`) inverts the condition. Applies to modules (file-level comment), declarations, object properties, and cascades to unused imports/variables.
 - `@dense-enum-values <values>` Compresses string literal arrays in-place to minimize bundle size.
 - `@mangle-preserve` Prevents property name mangling (e.g., for JSON serialization/storage compatibility).
 - `@mangle-force` Forces mangling of `private` class properties that conflict with the DOM safelist by renaming them to `_mf_<name>`.
