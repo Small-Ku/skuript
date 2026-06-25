@@ -64,10 +64,9 @@ export async function buildUserscriptMinifiedBody(
 	);
 	if (safelistCollisions.length) {
 		options.logger.warn(
-			`React/Terser DOM property name collisions detected: ${safelistCollisions.join(", ")}. These will not be mangled to avoid breaking DOM interop.`,
-		);
-		options.logger.warn(
-			`Userscript property mangle skipped ${safelistCollisions.length} Terser DOM safelist collision(s): ${safelistCollisions.join(", ")}. Rename internal-only fields if you want them shortened in the compiled userscript.`,
+			`Userscript property mangle: skipped ${safelistCollisions.length} DOM safelist collision(s) to avoid breaking DOM interop:\n` +
+				`  ${safelistCollisions.join(", ")}\n` +
+				`  -> Guideline: Rename internal-only fields, or annotate private class properties with '/** @mangle-force */' to shorten them in the compiled userscript.`,
 		);
 	}
 	const forcedMangleNames = internalObjectProperties.forced;
@@ -77,7 +76,7 @@ export async function buildUserscriptMinifiedBody(
 		);
 		if (forcedCollisions.length) {
 			options.logger.info(
-				`Userscript property mangle: renamed ${forcedCollisions.length} DOM safelist name(s) tagged @mangle-force in the TypeScript source transform pipeline: ${forcedCollisions.join(", ")}.`,
+				`Userscript property mangle: renamed ${forcedCollisions.length} DOM safelist name(s) tagged @mangle-force: ${forcedCollisions.join(", ")}.`,
 			);
 		}
 	}
