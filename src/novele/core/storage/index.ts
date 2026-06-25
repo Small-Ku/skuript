@@ -26,6 +26,7 @@ import {
 	type RuntimePageStore,
 	RuntimePageStoreImpl,
 } from "./stores/runtime-page-store";
+import type { PersistedChapterRecord, PersistedPageRecord } from "./types";
 
 export interface NoveleStorage {
 	preferences: PreferencesStore;
@@ -36,7 +37,82 @@ export interface NoveleStorage {
 	comments: CommentCacheStore<unknown>;
 }
 
+// @test-only
+class MemoryPreferencesDriver {
+	private readonly map = new Map<string, unknown>();
+	private listenerId = 0;
+	// biome-ignore lint/suspicious/noExplicitAny: test environment mock
+	private readonly listeners = new Map<number, { key: string; handler: any }>();
+
+	getValue<T>(key: string, defaultValue: T): T {
+		return (this.map.has(key) ? this.map.get(key) : defaultValue) as T;
+	}
+
+	setValue(key: string, value: unknown): void {
+		const oldValue = this.map.get(key);
+		this.map.set(key, value);
+		for (const listener of this.listeners.values()) {
+			if (listener.key === key) {
+				listener.handler(key, oldValue, value, false);
+			}
+		}
+	}
+
+	// biome-ignore lint/suspicious/noExplicitAny: test environment mock
+	addChangeListener(key: string, handler: any): number {
+		const id = ++this.listenerId;
+		this.listeners.set(id, { key, handler });
+		return id;
+	}
+
+	removeChangeListener(listenerId: number): void {
+		this.listeners.delete(listenerId);
+	}
+}
+
+// @test-only
+class MemoryPageCacheStore implements PageCacheStore {
+	private readonly cache = new Map<string, PersistedPageRecord>();
+	async get(url: string) {
+		return this.cache.get(url);
+	}
+	async put(url: string, page: PersistedPageRecord) {
+		this.cache.set(url, page);
+	}
+	async delete(url: string) {
+		this.cache.delete(url);
+	}
+	async clear() {
+		this.cache.clear();
+	}
+}
+
+// @test-only
+class MemoryChapterCacheStore implements ChapterCacheStore {
+	private readonly cache = new Map<string, PersistedChapterRecord>();
+	async get(url: string) {
+		return this.cache.get(url);
+	}
+	async put(url: string, chapter: PersistedChapterRecord) {
+		this.cache.set(url, chapter);
+	}
+}
+
 export function createNoveleStorage(): NoveleStorage {
+	// @test-only
+	if (process.env.NODE_ENV === "test") {
+		return {
+			preferences: new PreferencesStoreImpl(
+				new MemoryPreferencesDriver() as unknown as GmValuesDriver,
+			),
+			readerSession: new ReaderSessionStoreImpl(new LocalStorageDriver()),
+			pageCache: new MemoryPageCacheStore(),
+			chapterCache: new MemoryChapterCacheStore(),
+			runtimePages: new RuntimePageStoreImpl(new MemoryMapDriver()),
+			comments: new CommentCacheStoreImpl(new MemoryMapDriver()),
+		};
+	}
+
 	const localDriver = new LocalStorageDriver();
 	const pageCacheDriver = new IndexedDbDriver(
 		"novele-cache-v1",
@@ -89,10 +165,13 @@ export function createNoveleStorage(): NoveleStorage {
 		comments: new CommentCacheStoreImpl(new MemoryMapDriver()),
 	} satisfies NoveleStorage;
 
+	// @test-not
 	const flushReaderSession = () => {
 		storage.readerSession.flush();
 	};
+	// @test-not
 	window.addEventListener("pagehide", flushReaderSession);
+	// @test-not
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState === "hidden") {
 			flushReaderSession();

@@ -3,9 +3,9 @@ import path from "node:path";
 import { Node, Project, SyntaxKind } from "ts-morph";
 import type { TypeScriptSourceTransform } from "./typescript-source-transform";
 
-const DEV_ONLY_PATTERN = /@dev-only\b/;
-const FILE_LEVEL_DEV_ONLY_PATTERN =
-	/^\s*(?:\/\*+\s*@dev-only\b.*|\s*\/\/\s*@dev-only\b.*)$/;
+const ANY_ENV_ONLY_PATTERN =
+	/@(?:dev|development|prod|production|test)-(?:only|except|exclude|not)\b/;
+
 const MODULE_PATH_CANDIDATE_SUFFIXES = [
 	"",
 	".ts",
@@ -25,13 +25,67 @@ const MODULE_PATH_CANDIDATE_SUFFIXES = [
 const moduleResolutionCache = new Map<string, Promise<string | undefined>>();
 const devOnlyModuleCache = new Map<string, Promise<boolean>>();
 
-function hasDevOnlyMarker(node: Node) {
-	return DEV_ONLY_PATTERN.test(node.getFullText());
+function normalizeEnv(name: string): string | null {
+	const cleaned = name.trim().toLowerCase();
+	if (cleaned === "dev" || cleaned === "development") return "development";
+	if (cleaned === "prod" || cleaned === "production") return "production";
+	if (cleaned === "test") return "test";
+	return null;
 }
 
-function isFileLevelDevOnlySource(source: string) {
+function shouldRemove(commentText: string, currentEnv: string): boolean {
+	const normalizedCurrent = normalizeEnv(currentEnv) || "production";
+	const matches = [...commentText.matchAll(/@([a-zA-Z0-9_-]+)\b/g)];
+
+	for (const match of matches) {
+		const fullTag = match[1];
+		const onlyMatch = fullTag.match(/^([a-zA-Z0-9_]+)-(only)$/);
+		const exceptMatch = fullTag.match(/^([a-zA-Z0-9_]+)-(except|exclude|not)$/);
+
+		if (onlyMatch) {
+			const env = normalizeEnv(onlyMatch[1]);
+			if (env && normalizedCurrent !== env) {
+				return true;
+			}
+		} else if (exceptMatch) {
+			const env = normalizeEnv(exceptMatch[1]);
+			if (env && normalizedCurrent === env) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+function shouldRemoveFile(source: string, currentEnv: string): boolean {
 	const [firstLine = ""] = source.split(/\r?\n/, 1);
-	return FILE_LEVEL_DEV_ONLY_PATTERN.test(firstLine);
+	const isComment = /^\s*(?:\/\*+|\/\/)/.test(firstLine);
+	if (!isComment) return false;
+	return shouldRemove(firstLine, currentEnv);
+}
+
+function getAnnotationText(node: Node): string {
+	let text = "";
+
+	// 1. Get JSDoc comments
+	if (Node.isJSDocable(node)) {
+		for (const jsdoc of node.getJsDocs()) {
+			text += `${jsdoc.getText()}\n`;
+		}
+	}
+
+	// 2. Get leading comment ranges
+	const sourceFile = node.getSourceFile();
+	for (const range of node.getLeadingCommentRanges()) {
+		text += `${sourceFile.getFullText().slice(range.getPos(), range.getEnd())}\n`;
+	}
+
+	return text;
+}
+
+function shouldRemoveNode(node: Node, currentEnv: string): boolean {
+	return shouldRemove(getAnnotationText(node), currentEnv);
 }
 
 async function resolveModulePath(
@@ -70,23 +124,25 @@ async function resolveModulePath(
 	return resolutionPromise;
 }
 
-async function isDevOnlyModulePath(modulePath: string) {
+async function isDevOnlyModulePath(modulePath: string, currentEnv: string) {
 	const normalizedPath = path.normalize(modulePath);
-	const cached = devOnlyModuleCache.get(normalizedPath);
+	const cacheKey = `${normalizedPath}:${currentEnv}`;
+	const cached = devOnlyModuleCache.get(cacheKey);
 	if (cached) {
 		return cached;
 	}
 
 	const probePromise = readFile(normalizedPath, "utf8")
-		.then((source) => isFileLevelDevOnlySource(source))
+		.then((source) => shouldRemoveFile(source, currentEnv))
 		.catch(() => false);
 
-	devOnlyModuleCache.set(normalizedPath, probePromise);
+	devOnlyModuleCache.set(cacheKey, probePromise);
 	return probePromise;
 }
 
 function stripDevOnlyObjectLiteralMembers(
 	sourceFile: ReturnType<Project["createSourceFile"]>,
+	currentEnv: string,
 ) {
 	const removableMembers = sourceFile
 		.getDescendants()
@@ -102,7 +158,7 @@ function stripDevOnlyObjectLiteralMembers(
 
 			return (
 				node.getParentIfKind(SyntaxKind.ObjectLiteralExpression) !==
-					undefined && hasDevOnlyMarker(node)
+					undefined && shouldRemoveNode(node, currentEnv)
 			);
 		})
 		.sort((a, b) => b.getStart() - a.getStart());
@@ -123,7 +179,7 @@ function addRemovalRange(
 }
 
 function getDeclaredNames(node: Node): Node[] {
-	if (Node.isFunctionDeclaration(node)) {
+	if (Node.isFunctionDeclaration(node) || Node.isClassDeclaration(node)) {
 		return node.getNameNode() ? [node.getNameNodeOrThrow()] : [];
 	}
 
@@ -157,13 +213,19 @@ function getDeclaredNames(node: Node): Node[] {
 
 function collectDevOnlyDeclarations(
 	sourceFile: ReturnType<Project["createSourceFile"]>,
+	currentEnv: string,
 ) {
 	return sourceFile.getDescendants().filter((node) => {
 		return (
 			(Node.isFunctionDeclaration(node) ||
 				Node.isVariableStatement(node) ||
-				Node.isExpressionStatement(node)) &&
-			hasDevOnlyMarker(node)
+				Node.isExpressionStatement(node) ||
+				Node.isClassDeclaration(node) ||
+				Node.isIfStatement(node) ||
+				Node.isInterfaceDeclaration(node) ||
+				Node.isTypeAliasDeclaration(node) ||
+				Node.isEnumDeclaration(node)) &&
+			shouldRemoveNode(node, currentEnv)
 		);
 	});
 }
@@ -171,6 +233,7 @@ function collectDevOnlyDeclarations(
 async function collectDevOnlyImportDeclarations(
 	sourceFile: ReturnType<Project["createSourceFile"]>,
 	filePath: string,
+	currentEnv: string,
 ) {
 	const removableImports = [];
 
@@ -180,13 +243,34 @@ async function collectDevOnlyImportDeclarations(
 		if (!modulePath) {
 			continue;
 		}
-		if (!(await isDevOnlyModulePath(modulePath))) {
+		if (!(await isDevOnlyModulePath(modulePath, currentEnv))) {
 			continue;
 		}
 		removableImports.push(importDeclaration);
 	}
 
 	return removableImports;
+}
+
+function mergeRanges(ranges: [number, number][]): [number, number][] {
+	if (ranges.length <= 1) return ranges;
+	// Sort by start index ascending, then by end index descending
+	ranges.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
+
+	const merged: [number, number][] = [];
+	let current = ranges[0];
+
+	for (let i = 1; i < ranges.length; i++) {
+		const next = ranges[i];
+		if (next[0] <= current[1]) {
+			current = [current[0], Math.max(current[1], next[1])];
+		} else {
+			merged.push(current);
+			current = next;
+		}
+	}
+	merged.push(current);
+	return merged;
 }
 
 function removeBoundUsages(
@@ -212,7 +296,6 @@ function removeBoundUsages(
 		if (!declaredName) {
 			continue;
 		}
-
 		const key = `${declaredName.getSourceFile().getFilePath()}:${declaredName.getStart()}`;
 		if (seenNames.has(key)) {
 			continue;
@@ -244,11 +327,16 @@ function removeBoundUsages(
 		}
 	}
 
-	for (const range of Array.from(removalRanges.values()).sort(
-		(a, b) => b[0] - a[0],
-	)) {
-		sourceFile.replaceText(range, "");
+	const sortedMerged = mergeRanges(
+		Array.from(removalRanges.values()).map((r) => [r[0], r[1]]),
+	).sort((a, b) => b[0] - a[0]);
+
+	let text = sourceFile.getFullText();
+	for (const range of sortedMerged) {
+		text = text.slice(0, range[0]) + text.slice(range[1]);
 	}
+
+	sourceFile.replaceWithText(text);
 
 	return removalRanges.size > 0;
 }
@@ -305,6 +393,9 @@ function removeUnusedVariables(
 	for (const variableStatement of sourceFile
 		.getVariableStatements()
 		.reverse()) {
+		if (variableStatement.isExported()) {
+			continue;
+		}
 		for (const declaration of variableStatement.getDeclarations().reverse()) {
 			const nameNode = declaration.getNameNode();
 			if (!Node.isIdentifier(nameNode)) {
@@ -341,11 +432,14 @@ function stripUnusedBindings(
 	}
 }
 
-export default function devOnlyMarker(): TypeScriptSourceTransform {
+export default function envMarker(env?: string): TypeScriptSourceTransform {
+	const currentEnv = env || process.env.NODE_ENV || "production";
+
 	return {
-		name: "dev-only-marker",
+		name: "env-marker",
 		async transform({ path: filePath, source }) {
-			if (!DEV_ONLY_PATTERN.test(source)) {
+			const hasAnnotations = ANY_ENV_ONLY_PATTERN.test(source);
+			if (!hasAnnotations) {
 				const sourceFile = new Project({
 					useInMemoryFileSystem: true,
 				}).createSourceFile(filePath, source, {
@@ -354,6 +448,7 @@ export default function devOnlyMarker(): TypeScriptSourceTransform {
 				const removableImports = await collectDevOnlyImportDeclarations(
 					sourceFile,
 					filePath,
+					currentEnv,
 				);
 				if (removableImports.length === 0) {
 					return source;
@@ -377,9 +472,16 @@ export default function devOnlyMarker(): TypeScriptSourceTransform {
 			const removableImports = await collectDevOnlyImportDeclarations(
 				sourceFile,
 				filePath,
+				currentEnv,
 			);
-			const removableDeclarations = collectDevOnlyDeclarations(sourceFile);
-			const didStripMembers = stripDevOnlyObjectLiteralMembers(sourceFile);
+			const removableDeclarations = collectDevOnlyDeclarations(
+				sourceFile,
+				currentEnv,
+			);
+			const didStripMembers = stripDevOnlyObjectLiteralMembers(
+				sourceFile,
+				currentEnv,
+			);
 			const didRemoveBoundUsages = removeBoundUsages(
 				[...removableDeclarations, ...removableImports],
 				sourceFile,

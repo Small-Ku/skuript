@@ -1,0 +1,67 @@
+[
+	{
+		"name": "www.zhenhunxiaoshuo.com",
+		"url": "https://www.zhenhunxiaoshuo.com/buyaozailajitonglijiannanpengyou/",
+		"linkCount": 284,
+		"chapterCount": 284,
+		"chapters": [
+			{
+				"index": 0,
+				"linkIndex": 0,
+				"title": "前置內容",
+				"urlContains": "buyaozailajitonglijiannanpengyou",
+				"minTextLines": 5
+			},
+			{
+				"index": 1,
+				"linkIndex": 1,
+				"title": "1.天才炮灰逆袭记（一）",
+				"urlContains": "42606.html",
+				"minTextLines": 10
+			},
+			{
+				"index": 248,
+				"linkIndex": 248,
+				"title": "248.完美新世界（十二）",
+				"urlContains": "42853.html",
+				"minTextLines": 10
+			},
+			{
+				"index": 283,
+				"linkIndex": 283,
+				"title": "283.番外十三（完）",
+				"urlContains": "42888.html",
+				"minTextLines": 10
+			}
+		]
+	},
+	{
+		"name": "www.52shuku.net",
+		"url": "https://www.52shuku.net/chongsheng/hvCE.html",
+		"linkCount": 830,
+		"chapterCount": 318,
+		"chapters": [
+			{
+				"index": 0,
+				"linkIndex": 0,
+				"title": "前置內容",
+				"urlContains": "hvCE.html",
+				"minTextLines": 5
+			},
+			{
+				"index": 1,
+				"linkIndex": 1,
+				"title": "第1章 天才炮灰逆袭记（一）",
+				"urlContains": "hvCE_2.html",
+				"minTextLines": 10
+			},
+			{
+				"index": 290,
+				"linkIndex": 786,
+				"title": "第290 番外 第一夜 温泉",
+				"urlContains": "hvCE_787.html",
+				"minTextLines": 5
+			}
+		]
+	}
+]

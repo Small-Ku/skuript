@@ -10,7 +10,7 @@ import { hideBin } from "yargs/helpers";
 import styleLoader from "./bun_plugins/style-loader/style-loader";
 import cssModuleNamedImports from "./bun_plugins/typescript-transforms/css-module-named-imports";
 import denseEnumValues from "./bun_plugins/typescript-transforms/dense-enum-values";
-import devOnlyMarker from "./bun_plugins/typescript-transforms/dev-only-marker";
+import envMarker from "./bun_plugins/typescript-transforms/env-marker";
 import { mangleForcePropertiesSourceTransform } from "./bun_plugins/typescript-transforms/mangle-force";
 import typeScriptSourceTransform from "./bun_plugins/typescript-transforms/typescript-source-transform";
 import userscriptOptimizer from "./bun_plugins/userscript-optimizer/userscript-optimizer";
@@ -196,6 +196,7 @@ interface BuildOutput {
 
 async function build(option: BuildOption): Promise<BuildOutput> {
 	const { dev = false, releaseChannel = "OutOfBand", entrypoint } = option;
+	process.env.NODE_ENV = dev ? "development" : "production";
 
 	const scriptName = path.dirname(path.relative("./src", entrypoint));
 	const headerText = generateHeaderText(
@@ -205,11 +206,11 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 
 	logger.info(`Building ${entrypoint}`);
 
-	const devOnly = devOnlyMarker();
+	const envM = envMarker();
 	const denseEnums = denseEnumValues({ logger });
 	const mangleForce = mangleForcePropertiesSourceTransform({
 		scriptName,
-		precedingTransforms: [devOnly, denseEnums],
+		precedingTransforms: [envM, denseEnums],
 	});
 
 	let build: Awaited<ReturnType<typeof Bun.build>>;
@@ -230,7 +231,7 @@ async function build(option: BuildOption): Promise<BuildOutput> {
 			plugins: [
 				typeScriptSourceTransform({
 					transforms: [
-						...(dev ? [] : [devOnly, denseEnums, mangleForce]),
+						...(dev ? [] : [envM, denseEnums, mangleForce]),
 						cssModuleNamedImports(),
 					],
 				}),

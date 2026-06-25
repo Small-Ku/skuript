@@ -13,6 +13,7 @@
 	"author": "Small_Ku",
 	"license": "MIT",
 	"devDependencies": {
+		"@happy-dom/global-registrator": "^20.10.6",
 		"@types/bun": "latest",
 		"@types/yargs": "^17.0.33",
 		"browserslist": "^4.25.1",
@@ -35,7 +36,8 @@
 		"build:watch": "bun build.ts --dev --watch",
 		"build:workflow": "bun build.ts --release-channel GitHubRelease",
 		"clean": "rimraf ./dist/",
-		"dev": "bun build.ts --dev --server --watch"
+		"dev": "bun build.ts --dev --server --watch",
+		"test": "bun test"
 	},
 	"dependencies": {
 		"vanjs-core": "^1.5.3"
